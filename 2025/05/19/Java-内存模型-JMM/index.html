@@ -20,16 +20,20 @@
     var CONFIG = {"hostname":"makotogu.github.io","root":"/","scheme":"Mist","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
   </script>
 
-  <meta name="description" content="Java|数据库|分布式|架构分享我的学习之路">
+  <meta name="description" content="Java 内存模型 (JMM - Java Memory Model)JMM 是 Java 虚拟机规范的一部分，它试图在不同的硬件和操作系统之间提供一个一致的内存访问视图，并定义了 Java 程序中各种变量（尤其是共享变量）的访问规则，以及在并发环境下，一个线程对共享变量的写入何时对另一个线程可见。">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Java 内存模型(JMM)">
 <meta property="og:url" content="https://makotogu.github.io/2025/05/19/Java-%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B-JMM/index.html">
 <meta property="og:site_name" content="makotogu的小博客">
-<meta property="og:description" content="Java|数据库|分布式|架构分享我的学习之路">
+<meta property="og:description" content="Java 内存模型 (JMM - Java Memory Model)JMM 是 Java 虚拟机规范的一部分，它试图在不同的硬件和操作系统之间提供一个一致的内存访问视图，并定义了 Java 程序中各种变量（尤其是共享变量）的访问规则，以及在并发环境下，一个线程对共享变量的写入何时对另一个线程可见。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2025-05-19T05:02:20.000Z">
-<meta property="article:modified_time" content="2025-05-19T05:02:20.626Z">
+<meta property="article:modified_time" content="2025-05-19T05:12:31.858Z">
 <meta property="article:author" content="makotogu">
+<meta property="article:tag" content="JAVA">
+<meta property="article:tag" content="线程">
+<meta property="article:tag" content="底层">
+<meta property="article:tag" content="JVM">
 <meta name="twitter:card" content="summary">
 
 <link rel="canonical" href="https://makotogu.github.io/2025/05/19/Java-%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B-JMM/">
@@ -211,8 +215,18 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
+              
 
-              <time title="创建时间：2025-05-19 13:02:20" itemprop="dateCreated datePublished" datetime="2025-05-19T13:02:20+08:00">2025-05-19</time>
+              <time title="创建时间：2025-05-19 13:02:20 / 修改时间：13:12:31" itemprop="dateCreated datePublished" datetime="2025-05-19T13:02:20+08:00">2025-05-19</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%8A%80%E6%9C%AF%E5%88%86%E4%BA%AB/" itemprop="url" rel="index"><span itemprop="name">技术分享</span></a>
+                </span>
             </span>
 
           
@@ -226,7 +240,150 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        
+        <h1 id="Java-内存模型-JMM-Java-Memory-Model"><a href="#Java-内存模型-JMM-Java-Memory-Model" class="headerlink" title="Java 内存模型 (JMM - Java Memory Model)"></a>Java 内存模型 (JMM - Java Memory Model)</h1><p>JMM 是 Java 虚拟机规范的一部分，它试图在不同的硬件和操作系统之间提供一个一致的内存访问视图，并定义了 Java 程序中各种变量（尤其是共享变量）的访问规则，以及在并发环境下，一个线程对共享变量的写入何时对另一个线程可见。</p>
+<span id="more"></span>
+
+<h2 id="JMM-的目标与核心问题"><a href="#JMM-的目标与核心问题" class="headerlink" title="JMM 的目标与核心问题"></a>JMM 的目标与核心问题</h2><ul>
+<li><strong>目标</strong>: 屏蔽各种硬件和操作系统的内存访问差异，实现让 Java 程序在各种平台下都能达到一致的内存访问效果。</li>
+<li><strong>核心问题</strong>: 在多线程环境下，主要解决由 CPU 缓存、指令重排序等原因引发的：<ul>
+<li><strong>可见性 (Visibility)</strong>: 一个线程修改了共享变量的值，其他线程能够立即得知这个修改。</li>
+<li><strong>原子性 (Atomicity)</strong>: 一个或多个操作在 CPU 执行的过程中不被中断的特性。</li>
+<li><strong>有序性 (Ordering)</strong>: 程序执行的顺序按照代码的先后顺序执行（或者至少结果与按代码顺序执行一致）。</li>
+</ul>
+</li>
+</ul>
+<h2 id="JMM-的核心抽象概念"><a href="#JMM-的核心抽象概念" class="headerlink" title="JMM 的核心抽象概念"></a>JMM 的核心抽象概念</h2><ul>
+<li><p><strong>主内存 (Main Memory)</strong></p>
+<ul>
+<li>所有线程共享的存储区域。</li>
+<li>存储了 Java 对象实例、静态字段、数组元素等。</li>
+<li>是一个逻辑上的概念，可以对应物理硬件的 RAM。</li>
+</ul>
+</li>
+<li><p><strong>工作内存 (Working Memory &#x2F; Local Memory)</strong></p>
+<ul>
+<li>每个线程私有的数据区域。</li>
+<li>存储了该线程使用的变量在主内存中的<strong>副本拷贝</strong>。</li>
+<li>线程对变量的所有操作（读取、赋值等）都必须在工作内存中进行，不能直接读写主内存。</li>
+<li>工作内存也是一个抽象概念，可能对应 CPU 的高速缓存（L1, L2, L3 Cache）、寄存器等。</li>
+</ul>
+</li>
+<li><p><strong>线程间通信</strong>: 线程之间的共享变量值的传递必须通过主内存来完成。</p>
+<ul>
+<li>线程 A 修改共享变量 -&gt; 工作内存 A -&gt; （通过 JMM 的规则）-&gt; 主内存。</li>
+<li>线程 B 读取共享变量 -&gt; 主内存 -&gt; （通过 JMM 的规则）-&gt; 工作内存 B -&gt; 线程 B 使用。</li>
+</ul>
+</li>
+</ul>
+<pre class="mermaid" style="text-align: center;">
+            graph TD
+            subgraph CPU1_Core
+WM1["工作内存 1 (L1/L2 Cache, Registers)"]
+end
+subgraph CPU2_Core
+WM2["工作内存 2 (L1/L2 Cache, Registers)"]
+end
+Thread1 -->|操作| WM1
+Thread2 -->|操作| WM2
+WM1 <-->|"数据交换(Load/Store via Bus)"| MainMemory["主内存 (RAM)"]
+WM2 <-->|"数据交换(Load/Store via Bus)"| MainMemory
+
+style WM1 fill:#lightgreen,stroke:#333
+style WM2 fill:#lightgreen,stroke:#333
+style MainMemory fill:#lightblue,stroke:#333
+
+          </pre>
+
+<p><strong>类比</strong>:</p>
+<ul>
+<li><strong>主内存</strong>: 像是一个中央图书馆，存放着所有共享的书籍（数据）。</li>
+<li><strong>工作内存</strong>: 每个研究员（线程）都有自己的办公桌，他们会从图书馆借阅书籍的复印件（数据副本）到自己的桌上进行阅读和修改。</li>
+<li><strong>通信</strong>: 研究员 A 修改了复印件后，需要将修改后的版本送回图书馆（写回主内存），其他研究员 B 如果想看最新的，也需要从图书馆借阅最新的复印件（从主内存读取）。</li>
+</ul>
+<h2 id="内存间的交互操作-8-种原子操作-了解其语义"><a href="#内存间的交互操作-8-种原子操作-了解其语义" class="headerlink" title="内存间的交互操作 (8 种原子操作 - 了解其语义)"></a>内存间的交互操作 (8 种原子操作 - 了解其语义)</h2><p>JMM 定义了 8 种操作来完成主内存与工作内存之间的交互，这些操作都是原子的、不可再分的（对于 double 和 long 的非原子性协定除外，但现代 JVM 通常都实现为原子）：</p>
+<ul>
+<li><code>lock</code> (锁定): 作用于主内存变量，标识为线程独占。</li>
+<li><code>unlock</code> (解锁): 作用于主内存变量，释放锁定状态。</li>
+<li><code>read</code> (读取): 从主内存读取变量值，传输到工作内存，供<code>load</code>使用。</li>
+<li><code>load</code> (载入): 把<code>read</code>到的值放入工作内存的变量副本中。</li>
+<li><code>use</code> (使用): 把工作内存变量的值传递给执行引擎。</li>
+<li><code>assign</code> (赋值): 把从执行引擎接收到的值赋给工作内存变量。</li>
+<li><code>store</code> (存储): 把工作内存变量的值传送到主内存，供<code>write</code>使用。</li>
+<li><code>write</code> (写入): 把<code>store</code>传送过来的值写入主内存变量。</li>
+</ul>
+<p><strong>规则 (部分)</strong>:</p>
+<ul>
+<li>不允许<code>read</code>和<code>load</code>、<code>store</code>和<code>write</code>操作之一单独出现。</li>
+<li>不允许线程丢弃它最近的<code>assign</code>操作，即变量在工作内存中改变了之后必须同步到主内存中。</li>
+<li>不允许线程无原因地（没有发生过任何<code>assign</code>操作）把数据从工作内存同步回主内存。</li>
+<li>一个新的变量只能在主内存中“诞生”。</li>
+<li>一个变量在同一时刻只允许一条线程对其进行<code>lock</code>操作，但<code>lock</code>操作可以被同一条线程重复执行多次（对应可重入锁）。</li>
+<li>如果对一个变量执行<code>lock</code>操作，将会清空工作内存中此变量的值，在执行引擎使用这个变量前，需要重新执行<code>load</code>或<code>assign</code>操作初始化变量的值。</li>
+<li>如果一个变量事先没有被<code>lock</code>操作锁定，则不允许对它执行<code>unlock</code>操作，也不允许去<code>unlock</code>一个被其他线程锁定的变量。</li>
+<li>对一个变量执行<code>unlock</code>操作之前，必须先把此变量同步回主内存中（执行<code>store</code>、<code>write</code>操作）。</li>
+</ul>
+<h2 id="并发编程中的三大特性-JMM-如何通过关键字和规则来保证"><a href="#并发编程中的三大特性-JMM-如何通过关键字和规则来保证" class="headerlink" title="并发编程中的三大特性 (JMM 如何通过关键字和规则来保证)"></a>并发编程中的三大特性 (JMM 如何通过关键字和规则来保证)</h2><ul>
+<li><p><strong>原子性 (Atomicity)</strong></p>
+<ul>
+<li><strong>定义</strong>: 一个操作或者多个操作，要么全部执行并且执行的过程不会被任何因素打断，要么就都不执行。</li>
+<li><strong>JMM 保证</strong>:<ul>
+<li>基本数据类型（<code>byte</code>, <code>short</code>, <code>int</code>, <code>float</code>, <code>boolean</code>, <code>char</code>, <code>reference</code>）的简单读取和赋值操作是原子的。（<code>long</code>和<code>double</code>的 64 位非原子性协定在实际 JVM 中通常也被实现为原子）。</li>
+<li><code>synchronized</code>关键字：通过<code>monitorenter</code>和<code>monitorexit</code>字节码指令，保证了被同步代码块的操作是原子的。它隐式地执行了<code>lock</code>和<code>unlock</code>操作。</li>
+<li><code>java.util.concurrent.locks.Lock</code>接口的实现（如<code>ReentrantLock</code>）：提供了显式的<code>lock()</code>和<code>unlock()</code>操作，也保证了原子性。</li>
+<li><code>java.util.concurrent.atomic</code>包下的原子类：通过 CAS 无锁操作保证了复合操作（如<code>i++</code>）的原子性。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>可见性 (Visibility)</strong></p>
+<ul>
+<li><strong>定义</strong>: 当一个线程修改了共享变量的值，其他线程能够立即得知这个修改。</li>
+<li><strong>JMM 保证</strong>:<ul>
+<li><code>volatile</code>关键字：<ul>
+<li>当写一个<code>volatile</code>变量时，JMM 会把该线程对应的本地内存中的共享变量值刷新到主内存。</li>
+<li>当读一个<code>volatile</code>变量时，JMM 会把该线程对应的本地内存置为无效，线程将直接从主内存读取共享变量。</li>
+</ul>
+</li>
+<li><code>synchronized</code>关键字：<ul>
+<li>对一个变量执行<code>unlock</code>操作之前，必须先把此变量同步回主内存（<code>store</code>, <code>write</code>）。</li>
+<li>对一个变量执行<code>lock</code>操作时，会清空工作内存中此变量的值，使用前需重新从主内存加载（<code>load</code>, <code>read</code>）。</li>
+</ul>
+</li>
+<li><code>final</code>关键字：被<code>final</code>修饰的字段在构造器中一旦初始化完成，并且构造器没有把“this”引用传递出去（无逸出），那么在其他线程中就能看见<code>final</code>字段的值。</li>
+<li><code>java.util.concurrent.locks.Lock</code>接口的实现。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>有序性 (Ordering)</strong></p>
+<ul>
+<li><strong>定义</strong>: 程序执行的顺序按照代码的先后顺序执行。</li>
+<li><strong>指令重排序</strong>: 编译器和处理器为了优化性能，可能会改变程序中语句的执行顺序，只要不改变单线程程序的最终结果（<code>as-if-serial</code>语义）。但在多线程中，重排序可能导致问题。</li>
+<li><strong>JMM 保证</strong>:<ul>
+<li><code>volatile</code>关键字：通过插入<strong>内存屏障 (Memory Barrier&#x2F;Fence)</strong> 来禁止特定类型的指令重排序。</li>
+<li><code>synchronized</code>关键字：一个变量在同一个锁上一次只能被一个线程操作，这使得持有同一个锁的两个同步块只能串行地进入，表现出一定的有序性。具体来说，一个<code>unlock</code>操作 <code>happens-before</code> 后续对同一个锁的<code>lock</code>操作。</li>
+<li><code>java.util.concurrent.locks.Lock</code>接口的实现。</li>
+<li><strong>Happens-Before 原则</strong></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="Happens-Before-原则-JMM-中非常核心的规则"><a href="#Happens-Before-原则-JMM-中非常核心的规则" class="headerlink" title="Happens-Before 原则 (JMM 中非常核心的规则)"></a>Happens-Before 原则 (JMM 中非常核心的规则)</h2><p>Happens-Before 是 JMM 中用于判断数据是否存在竞争、线程是否安全的主要依据。它定义了在 Java 内存模型中，两个操作之间的偏序关系。如果操作 A <code>happens-before</code> 操作 B (记作 A hb B)，那么 JMM 保证 A 操作的执行结果对 B 操作可见，并且 A 操作的执行顺序在 B 操作之前。</p>
+<p><strong>主要的 Happens-Before 规则：</strong></p>
+<ol>
+<li><strong>程序次序规则 (Program Order Rule)</strong>: 在一个线程内，按照代码控制流顺序，书写在前面的操作先行发生于书写在后面的操作。</li>
+<li><strong>管程锁定规则 (Monitor Lock Rule)</strong>: 一个<code>unlock</code>操作先行发生于后面对<strong>同一个锁</strong>的<code>lock</code>操作。</li>
+<li><strong><code>volatile</code>变量规则 (Volatile Variable Rule)</strong>: 对一个<code>volatile</code>变量的写操作先行发生于后面对这个变量的读操作。</li>
+<li><strong>线程启动规则 (Thread Start Rule)</strong>: <code>Thread</code>对象的<code>start()</code>方法先行发生于此线程的每一个动作。</li>
+<li><strong>线程终止规则 (Thread Termination Rule)</strong>: 线程中的所有操作都先行发生于对此线程的终止检测（如<code>Thread.join()</code>返回，<code>Thread.isAlive()</code>返回<code>false</code>）。</li>
+<li><strong>线程中断规则 (Thread Interruption Rule)</strong>: 对线程<code>interrupt()</code>方法的调用先行发生于被中断线程的代码检测到中断事件的发生。</li>
+<li><strong>对象终结规则 (Finalizer Rule)</strong>: 一个对象的初始化完成（构造函数执行结束）先行发生于它的<code>finalize()</code>方法的开始。</li>
+<li><strong>传递性 (Transitivity)</strong>: 如果操作 A 先行发生于操作 B，而操作 B 又先行发生于操作 C，那么可以得出操作 A 先行发生于操作 C。</li>
+</ol>
+<p><strong>作用</strong>: 开发者可以通过这些规则来判断自己的并发程序是否是线程安全的，而无需关心底层 JMM 的复杂实现细节。如果两个操作之间不存在<code>happens-before</code>关系，那么 JVM 可以对它们进行任意重排序。</p>
+<p><strong>类比 Happens-Before</strong>: 像是一系列“因果律令”。如果事件 A 是事件 B 的“因”（A hb B），那么 B 就能看到 A 造成的所有“果”（内存可见性），并且 A 一定在 B 之前发生。</p>
+
     </div>
 
     
@@ -234,6 +391,12 @@
     
 
       <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/JAVA/" rel="tag"># JAVA</a>
+              <a href="/tags/%E7%BA%BF%E7%A8%8B/" rel="tag"># 线程</a>
+              <a href="/tags/%E5%BA%95%E5%B1%82/" rel="tag"># 底层</a>
+              <a href="/tags/JVM/" rel="tag"># JVM</a>
+          </div>
 
         
 
@@ -303,6 +466,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Java-%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B-JMM-Java-Memory-Model"><span class="nav-number">1.</span> <span class="nav-text">Java 内存模型 (JMM - Java Memory Model)</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#JMM-%E7%9A%84%E7%9B%AE%E6%A0%87%E4%B8%8E%E6%A0%B8%E5%BF%83%E9%97%AE%E9%A2%98"><span class="nav-number">1.1.</span> <span class="nav-text">JMM 的目标与核心问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#JMM-%E7%9A%84%E6%A0%B8%E5%BF%83%E6%8A%BD%E8%B1%A1%E6%A6%82%E5%BF%B5"><span class="nav-number">1.2.</span> <span class="nav-text">JMM 的核心抽象概念</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%85%E5%AD%98%E9%97%B4%E7%9A%84%E4%BA%A4%E4%BA%92%E6%93%8D%E4%BD%9C-8-%E7%A7%8D%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C-%E4%BA%86%E8%A7%A3%E5%85%B6%E8%AF%AD%E4%B9%89"><span class="nav-number">1.3.</span> <span class="nav-text">内存间的交互操作 (8 种原子操作 - 了解其语义)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B8%AD%E7%9A%84%E4%B8%89%E5%A4%A7%E7%89%B9%E6%80%A7-JMM-%E5%A6%82%E4%BD%95%E9%80%9A%E8%BF%87%E5%85%B3%E9%94%AE%E5%AD%97%E5%92%8C%E8%A7%84%E5%88%99%E6%9D%A5%E4%BF%9D%E8%AF%81"><span class="nav-number">1.4.</span> <span class="nav-text">并发编程中的三大特性 (JMM 如何通过关键字和规则来保证)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Happens-Before-%E5%8E%9F%E5%88%99-JMM-%E4%B8%AD%E9%9D%9E%E5%B8%B8%E6%A0%B8%E5%BF%83%E7%9A%84%E8%A7%84%E5%88%99"><span class="nav-number">1.5.</span> <span class="nav-text">Happens-Before 原则 (JMM 中非常核心的规则)</span></a></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -329,7 +493,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">3</span>
+        <span class="site-state-item-count">4</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

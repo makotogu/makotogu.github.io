@@ -67,6 +67,13 @@
     <priority>0.2</priority>
   </url>
   
+  <url>
+    <loc>https://makotogu.github.io/tags/JVM/</loc>
+    <lastmod>2025-05-19</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
 
   
   <url>
