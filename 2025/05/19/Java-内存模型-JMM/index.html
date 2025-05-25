@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"makotogu.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="Java 内存模型 (JMM - Java Memory Model)写在前面在多年的 Java 开发实践中，我发现很多并发问题的根源都可以追溯到对 Java 内存模型的理解不足。无论是生产环境中偶现的数据不一致问题，还是性能优化中的锁竞争分析，JMM 都是绕不开的核心知识点。 本文将从理论基础到实际应用，系统梳理 JMM 的核心概念，并结合具体代码示例分析常见的并发问题及其解决方案。希望能够帮助">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Java 内存模型(JMM)">
+<meta property="og:url" content="https://makotogu.github.io/2025/05/19/Java-%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B-JMM/index.html">
+<meta property="og:site_name" content="makotogu的小博客">
+<meta property="og:description" content="Java 内存模型 (JMM - Java Memory Model)写在前面在多年的 Java 开发实践中，我发现很多并发问题的根源都可以追溯到对 Java 内存模型的理解不足。无论是生产环境中偶现的数据不一致问题，还是性能优化中的锁竞争分析，JMM 都是绕不开的核心知识点。 本文将从理论基础到实际应用，系统梳理 JMM 的核心概念，并结合具体代码示例分析常见的并发问题及其解决方案。希望能够帮助">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-05-19T05:02:20.000Z">
+<meta property="article:modified_time" content="2025-05-23T05:12:21.239Z">
+<meta property="article:author" content="makotogu">
+<meta property="article:tag" content="JAVA">
+<meta property="article:tag" content="线程">
+<meta property="article:tag" content="底层">
+<meta property="article:tag" content="JVM">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://makotogu.github.io/2025/05/19/Java-%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B-JMM/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Java 内存模型(JMM) | makotogu的小博客</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">makotogu的小博客</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">记录生活，记录技术</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://makotogu.github.io/2025/05/19/Java-%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B-JMM/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="makotogu">
+      <meta itemprop="description" content="Java|数据库|分布式|架构<br>分享我的学习之路">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="makotogu的小博客">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Java 内存模型(JMM)
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2025-05-19 13:02:20" itemprop="dateCreated datePublished" datetime="2025-05-19T13:02:20+08:00">2025-05-19</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-05-23 13:12:21" itemprop="dateModified" datetime="2025-05-23T13:12:21+08:00">2025-05-23</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%8A%80%E6%9C%AF%E5%88%86%E4%BA%AB/" itemprop="url" rel="index"><span itemprop="name">技术分享</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="Java-内存模型-JMM-Java-Memory-Model"><a href="#Java-内存模型-JMM-Java-Memory-Model" class="headerlink" title="Java 内存模型 (JMM - Java Memory Model)"></a>Java 内存模型 (JMM - Java Memory Model)</h1><h2 id="写在前面"><a href="#写在前面" class="headerlink" title="写在前面"></a>写在前面</h2><p>在多年的 Java 开发实践中，我发现很多并发问题的根源都可以追溯到对 Java 内存模型的理解不足。无论是生产环境中偶现的数据不一致问题，还是性能优化中的锁竞争分析，JMM 都是绕不开的核心知识点。</p>
+<p>本文将从<strong>理论基础</strong>到<strong>实际应用</strong>，系统梳理 JMM 的核心概念，并结合具体代码示例分析常见的并发问题及其解决方案。希望能够帮助读者：</p>
+<ul>
+<li>🎯 <strong>深入理解</strong> JMM 的抽象模型和底层实现</li>
+<li>🔍 <strong>快速识别</strong> 并发编程中的可见性、原子性、有序性问题</li>
+<li>🛠️ <strong>掌握最佳实践</strong> 选择合适的同步机制</li>
+<li>📈 <strong>提升代码质量</strong> 编写线程安全且高性能的并发代码</li>
+</ul>
+<h2 id="为什么-JMM-如此重要？"><a href="#为什么-JMM-如此重要？" class="headerlink" title="为什么 JMM 如此重要？"></a>为什么 JMM 如此重要？</h2><blockquote>
+<p><strong>实际案例</strong>：曾在生产环境中遇到一个诡异的 bug：配置热更新功能在单机测试时工作正常，但在多核服务器上偶尔会失效。经过排查发现，是因为配置标志位没有使用 <code>volatile</code> 修饰，导致某些线程看不到配置的最新值。这个案例让我深刻意识到 JMM 知识的重要性。</p>
+</blockquote>
+<p>在现代多核 CPU 架构下，每个 CPU 核心都有自己的缓存层次（L1、L2、L3），Java 程序要想正确运行在这样的硬件环境中，就必须有一套明确的内存访问规范。JMM 正是这样一套规范，它：</p>
+<ul>
+<li><strong>屏蔽硬件差异</strong>：让 Java 程序在不同硬件平台上表现一致</li>
+<li><strong>定义可见性规则</strong>：明确什么时候一个线程的修改对另一个线程可见</li>
+<li><strong>规范执行顺序</strong>：在保证性能的前提下约束指令重排序的范围</li>
+</ul>
+<p>JMM 是 Java 虚拟机规范的一部分，它试图在不同的硬件和操作系统之间提供一个一致的内存访问视图，并定义了 Java 程序中各种变量（尤其是共享变量）的访问规则，以及在并发环境下，一个线程对共享变量的写入何时对另一个线程可见。</p>
+<span id="more"></span>
+
+<h2 id="JMM-的目标与核心问题"><a href="#JMM-的目标与核心问题" class="headerlink" title="JMM 的目标与核心问题"></a>JMM 的目标与核心问题</h2><ul>
+<li><strong>目标</strong>: 屏蔽各种硬件和操作系统的内存访问差异，实现让 Java 程序在各种平台下都能达到一致的内存访问效果。</li>
+<li><strong>核心问题</strong>: 在多线程环境下，主要解决由 CPU 缓存、指令重排序等原因引发的：<ul>
+<li><strong>可见性 (Visibility)</strong>: 一个线程修改了共享变量的值，其他线程能够立即得知这个修改。</li>
+<li><strong>原子性 (Atomicity)</strong>: 一个或多个操作在 CPU 执行的过程中不被中断的特性。</li>
+<li><strong>有序性 (Ordering)</strong>: 程序执行的顺序按照代码的先后顺序执行（或者至少结果与按代码顺序执行一致）。</li>
+</ul>
+</li>
+</ul>
+<h2 id="JMM-的核心抽象概念"><a href="#JMM-的核心抽象概念" class="headerlink" title="JMM 的核心抽象概念"></a>JMM 的核心抽象概念</h2><ul>
+<li><p><strong>主内存 (Main Memory)</strong></p>
+<ul>
+<li>所有线程共享的存储区域。</li>
+<li>存储了 Java 对象实例、静态字段、数组元素等。</li>
+<li>是一个逻辑上的概念，可以对应物理硬件的 RAM。</li>
+</ul>
+</li>
+<li><p><strong>工作内存 (Working Memory &#x2F; Local Memory)</strong></p>
+<ul>
+<li>每个线程私有的数据区域。</li>
+<li>存储了该线程使用的变量在主内存中的<strong>副本拷贝</strong>。</li>
+<li>线程对变量的所有操作（读取、赋值等）都必须在工作内存中进行，不能直接读写主内存。</li>
+<li>工作内存也是一个抽象概念，可能对应 CPU 的高速缓存（L1, L2, L3 Cache）、寄存器等。</li>
+</ul>
+</li>
+<li><p><strong>线程间通信</strong>: 线程之间的共享变量值的传递必须通过主内存来完成。</p>
+<ul>
+<li>线程 A 修改共享变量 -&gt; 工作内存 A -&gt; （通过 JMM 的规则）-&gt; 主内存。</li>
+<li>线程 B 读取共享变量 -&gt; 主内存 -&gt; （通过 JMM 的规则）-&gt; 工作内存 B -&gt; 线程 B 使用。</li>
+</ul>
+</li>
+</ul>
+<pre class="mermaid" style="text-align: center;">
+            graph TD
+            subgraph CPU1_Core
+WM1["工作内存 1 (L1/L2 Cache, Registers)"]
+end
+subgraph CPU2_Core
+WM2["工作内存 2 (L1/L2 Cache, Registers)"]
+end
+Thread1 -->|操作| WM1
+Thread2 -->|操作| WM2
+WM1 <-->|"数据交换(Load/Store via Bus)"| MainMemory["主内存 (RAM)"]
+WM2 <-->|"数据交换(Load/Store via Bus)"| MainMemory
+
+style WM1 fill:#lightgreen,stroke:#333
+style WM2 fill:#lightgreen,stroke:#333
+style MainMemory fill:#lightblue,stroke:#333
+
+          </pre>
+
+<p><strong>类比</strong>:</p>
+<ul>
+<li><strong>主内存</strong>: 像是一个中央图书馆，存放着所有共享的书籍（数据）。</li>
+<li><strong>工作内存</strong>: 每个研究员（线程）都有自己的办公桌，他们会从图书馆借阅书籍的复印件（数据副本）到自己的桌上进行阅读和修改。</li>
+<li><strong>通信</strong>: 研究员 A 修改了复印件后，需要将修改后的版本送回图书馆（写回主内存），其他研究员 B 如果想看最新的，也需要从图书馆借阅最新的复印件（从主内存读取）。</li>
+</ul>
+<h2 id="内存间的交互操作-8-种原子操作-了解其语义"><a href="#内存间的交互操作-8-种原子操作-了解其语义" class="headerlink" title="内存间的交互操作 (8 种原子操作 - 了解其语义)"></a>内存间的交互操作 (8 种原子操作 - 了解其语义)</h2><p>JMM 定义了 8 种操作来完成主内存与工作内存之间的交互，这些操作都是原子的、不可再分的（对于 double 和 long 的非原子性协定除外，但现代 JVM 通常都实现为原子）：</p>
+<ul>
+<li><code>lock</code> (锁定): 作用于主内存变量，标识为线程独占。</li>
+<li><code>unlock</code> (解锁): 作用于主内存变量，释放锁定状态。</li>
+<li><code>read</code> (读取): 从主内存读取变量值，传输到工作内存，供<code>load</code>使用。</li>
+<li><code>load</code> (载入): 把<code>read</code>到的值放入工作内存的变量副本中。</li>
+<li><code>use</code> (使用): 把工作内存变量的值传递给执行引擎。</li>
+<li><code>assign</code> (赋值): 把从执行引擎接收到的值赋给工作内存变量。</li>
+<li><code>store</code> (存储): 把工作内存变量的值传送到主内存，供<code>write</code>使用。</li>
+<li><code>write</code> (写入): 把<code>store</code>传送过来的值写入主内存变量。</li>
+</ul>
+<p><strong>规则 (部分)</strong>:</p>
+<ul>
+<li>不允许<code>read</code>和<code>load</code>、<code>store</code>和<code>write</code>操作之一单独出现。</li>
+<li>不允许线程丢弃它最近的<code>assign</code>操作，即变量在工作内存中改变了之后必须同步到主内存中。</li>
+<li>不允许线程无原因地（没有发生过任何<code>assign</code>操作）把数据从工作内存同步回主内存。</li>
+<li>一个新的变量只能在主内存中”诞生”。</li>
+<li>一个变量在同一时刻只允许一条线程对其进行<code>lock</code>操作，但<code>lock</code>操作可以被同一条线程重复执行多次（对应可重入锁）。</li>
+<li>如果对一个变量执行<code>lock</code>操作，将会清空工作内存中此变量的值，在执行引擎使用这个变量前，需要重新执行<code>load</code>或<code>assign</code>操作初始化变量的值。</li>
+<li>如果一个变量事先没有被<code>lock</code>操作锁定，则不允许对它执行<code>unlock</code>操作，也不允许去<code>unlock</code>一个被其他线程锁定的变量。</li>
+<li>对一个变量执行<code>unlock</code>操作之前，必须先把此变量同步回主内存中（执行<code>store</code>、<code>write</code>操作）。</li>
+</ul>
+<h2 id="并发编程中的三大特性-JMM-如何通过关键字和规则来保证"><a href="#并发编程中的三大特性-JMM-如何通过关键字和规则来保证" class="headerlink" title="并发编程中的三大特性 (JMM 如何通过关键字和规则来保证)"></a>并发编程中的三大特性 (JMM 如何通过关键字和规则来保证)</h2><ul>
+<li><p><strong>原子性 (Atomicity)</strong></p>
+<ul>
+<li><strong>定义</strong>: 一个操作或者多个操作，要么全部执行并且执行的过程不会被任何因素打断，要么就都不执行。</li>
+<li><strong>JMM 保证</strong>:<ul>
+<li>基本数据类型（<code>byte</code>, <code>short</code>, <code>int</code>, <code>float</code>, <code>boolean</code>, <code>char</code>, <code>reference</code>）的简单读取和赋值操作是原子的。（<code>long</code>和<code>double</code>的 64 位非原子性协定在实际 JVM 中通常也被实现为原子）。</li>
+<li><code>synchronized</code>关键字：通过<code>monitorenter</code>和<code>monitorexit</code>字节码指令，保证了被同步代码块的操作是原子的。它隐式地执行了<code>lock</code>和<code>unlock</code>操作。</li>
+<li><code>java.util.concurrent.locks.Lock</code>接口的实现（如<code>ReentrantLock</code>）：提供了显式的<code>lock()</code>和<code>unlock()</code>操作，也保证了原子性。</li>
+<li><code>java.util.concurrent.atomic</code>包下的原子类：通过 CAS 无锁操作保证了复合操作（如<code>i++</code>）的原子性。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>可见性 (Visibility)</strong></p>
+<ul>
+<li><strong>定义</strong>: 当一个线程修改了共享变量的值，其他线程能够立即得知这个修改。</li>
+<li><strong>JMM 保证</strong>:<ul>
+<li><code>volatile</code>关键字：<ul>
+<li>当写一个<code>volatile</code>变量时，JMM 会把该线程对应的本地内存中的共享变量值刷新到主内存。</li>
+<li>当读一个<code>volatile</code>变量时，JMM 会把该线程对应的本地内存置为无效，线程将直接从主内存读取共享变量。</li>
+</ul>
+</li>
+<li><code>synchronized</code>关键字：<ul>
+<li>对一个变量执行<code>unlock</code>操作之前，必须先把此变量同步回主内存（<code>store</code>, <code>write</code>）。</li>
+<li>对一个变量执行<code>lock</code>操作时，会清空工作内存中此变量的值，使用前需重新从主内存加载（<code>load</code>, <code>read</code>）。</li>
+</ul>
+</li>
+<li><code>final</code>关键字：被<code>final</code>修饰的字段在构造器中一旦初始化完成，并且构造器没有把”this”引用传递出去（无逸出），那么在其他线程中就能看见<code>final</code>字段的值。</li>
+<li><code>java.util.concurrent.locks.Lock</code>接口的实现。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>有序性 (Ordering)</strong></p>
+<ul>
+<li><strong>定义</strong>: 程序执行的顺序按照代码的先后顺序执行。</li>
+<li><strong>指令重排序</strong>: 编译器和处理器为了优化性能，可能会改变程序中语句的执行顺序，只要不改变单线程程序的最终结果（<code>as-if-serial</code>语义）。但在多线程中，重排序可能导致问题。</li>
+<li><strong>JMM 保证</strong>:<ul>
+<li><code>volatile</code>关键字：通过插入<strong>内存屏障 (Memory Barrier&#x2F;Fence)</strong> 来禁止特定类型的指令重排序。</li>
+<li><code>synchronized</code>关键字：一个变量在同一个锁上一次只能被一个线程操作，这使得持有同一个锁的两个同步块只能串行地进入，表现出一定的有序性。具体来说，一个<code>unlock</code>操作 <code>happens-before</code> 后续对同一个锁的<code>lock</code>操作。</li>
+<li><code>java.util.concurrent.locks.Lock</code>接口的实现。</li>
+<li><strong>Happens-Before 原则</strong></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="Happens-Before-原则-JMM-中非常核心的规则"><a href="#Happens-Before-原则-JMM-中非常核心的规则" class="headerlink" title="Happens-Before 原则 (JMM 中非常核心的规则)"></a>Happens-Before 原则 (JMM 中非常核心的规则)</h2><p>Happens-Before 是 JMM 中用于判断数据是否存在竞争、线程是否安全的主要依据。它定义了在 Java 内存模型中，两个操作之间的偏序关系。如果操作 A <code>happens-before</code> 操作 B (记作 A hb B)，那么 JMM 保证 A 操作的执行结果对 B 操作可见，并且 A 操作的执行顺序在 B 操作之前。</p>
+<p><strong>主要的 Happens-Before 规则：</strong></p>
+<ol>
+<li><strong>程序次序规则 (Program Order Rule)</strong>: 在一个线程内，按照代码控制流顺序，书写在前面的操作先行发生于书写在后面的操作。</li>
+<li><strong>管程锁定规则 (Monitor Lock Rule)</strong>: 一个<code>unlock</code>操作先行发生于后面对<strong>同一个锁</strong>的<code>lock</code>操作。</li>
+<li><strong><code>volatile</code>变量规则 (Volatile Variable Rule)</strong>: 对一个<code>volatile</code>变量的写操作先行发生于后面对这个变量的读操作。</li>
+<li><strong>线程启动规则 (Thread Start Rule)</strong>: <code>Thread</code>对象的<code>start()</code>方法先行发生于此线程的每一个动作。</li>
+<li><strong>线程终止规则 (Thread Termination Rule)</strong>: 线程中的所有操作都先行发生于对此线程的终止检测（如<code>Thread.join()</code>返回，<code>Thread.isAlive()</code>返回<code>false</code>）。</li>
+<li><strong>线程中断规则 (Thread Interruption Rule)</strong>: 对线程<code>interrupt()</code>方法的调用先行发生于被中断线程的代码检测到中断事件的发生。</li>
+<li><strong>对象终结规则 (Finalizer Rule)</strong>: 一个对象的初始化完成（构造函数执行结束）先行发生于它的<code>finalize()</code>方法的开始。</li>
+<li><strong>传递性 (Transitivity)</strong>: 如果操作 A 先行发生于操作 B，而操作 B 又先行发生于操作 C，那么可以得出操作 A 先行发生于操作 C。</li>
+</ol>
+<p><strong>作用</strong>: 开发者可以通过这些规则来判断自己的并发程序是否是线程安全的，而无需关心底层 JMM 的复杂实现细节。如果两个操作之间不存在<code>happens-before</code>关系，那么 JVM 可以对它们进行任意重排序。</p>
+<p><strong>类比 Happens-Before</strong>: 像是一系列”因果律令”。如果事件 A 是事件 B 的”因”（A hb B），那么 B 就能看到 A 造成的所有”果”（内存可见性），并且 A 一定在 B 之前发生。</p>
+<h2 id="实际代码示例：看看-JMM-问题如何发生"><a href="#实际代码示例：看看-JMM-问题如何发生" class="headerlink" title="实际代码示例：看看 JMM 问题如何发生"></a>实际代码示例：看看 JMM 问题如何发生</h2><h3 id="可见性问题示例"><a href="#可见性问题示例" class="headerlink" title="可见性问题示例"></a>可见性问题示例</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">VisibilityExample</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="type">boolean</span> <span class="variable">stop</span> <span class="operator">=</span> <span class="literal">false</span>;  <span class="comment">// 未使用volatile</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">writer</span><span class="params">()</span> &#123;</span><br><span class="line">        stop = <span class="literal">true</span>;  <span class="comment">// 线程A修改stop</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">reader</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">while</span> (!stop) &#123;  <span class="comment">// 线程B可能永远看不到stop=true</span></span><br><span class="line">            <span class="comment">// 做其他工作</span></span><br><span class="line">        &#125;</span><br><span class="line">        System.out.println(<span class="string">&quot;停止了！&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>问题</strong>: 线程 B 可能永远在循环中，因为它在工作内存中的<code>stop</code>副本可能一直是<code>false</code>。</p>
+<p><strong>解决方案</strong>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">volatile</span> <span class="type">boolean</span> <span class="variable">stop</span> <span class="operator">=</span> <span class="literal">false</span>;  <span class="comment">// 使用volatile保证可见性</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="原子性问题示例"><a href="#原子性问题示例" class="headerlink" title="原子性问题示例"></a>原子性问题示例</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">AtomicityExample</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="type">int</span> <span class="variable">count</span> <span class="operator">=</span> <span class="number">0</span>;  <span class="comment">// 非原子操作</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">increment</span><span class="params">()</span> &#123;</span><br><span class="line">        count++;  <span class="comment">// 这不是原子操作！实际是三步：读取-&gt;增加-&gt;写入</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>问题</strong>: 多线程同时调用<code>increment()</code>可能导致计数错误。</p>
+<p><strong>解决方案</strong>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 方案1: 使用synchronized</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">synchronized</span> <span class="keyword">void</span> <span class="title function_">increment</span><span class="params">()</span> &#123;</span><br><span class="line">    count++;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 方案2: 使用原子类</span></span><br><span class="line"><span class="keyword">private</span> <span class="type">AtomicInteger</span> <span class="variable">count</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">AtomicInteger</span>(<span class="number">0</span>);</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">increment</span><span class="params">()</span> &#123;</span><br><span class="line">    count.incrementAndGet();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="有序性问题示例（双重检查锁定）"><a href="#有序性问题示例（双重检查锁定）" class="headerlink" title="有序性问题示例（双重检查锁定）"></a>有序性问题示例（双重检查锁定）</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Singleton</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> Singleton instance;  <span class="comment">// 问题：缺少volatile</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title function_">getInstance</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (instance == <span class="literal">null</span>) &#123;  <span class="comment">// 第一次检查</span></span><br><span class="line">            <span class="keyword">synchronized</span> (Singleton.class) &#123;</span><br><span class="line">                <span class="keyword">if</span> (instance == <span class="literal">null</span>) &#123;  <span class="comment">// 第二次检查</span></span><br><span class="line">                    instance = <span class="keyword">new</span> <span class="title class_">Singleton</span>();  <span class="comment">// 可能发生指令重排序！</span></span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>问题</strong>: <code>new Singleton()</code>分为三步：</p>
+<ol>
+<li>分配内存空间</li>
+<li>初始化对象</li>
+<li>将<code>instance</code>指向内存地址</li>
+</ol>
+<p>由于指令重排序，可能变成 1→3→2，导致其他线程拿到未初始化完成的对象。</p>
+<p><strong>解决方案</strong>:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">volatile</span> Singleton instance;  <span class="comment">// 使用volatile禁止重排序</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="内存屏障深入理解"><a href="#内存屏障深入理解" class="headerlink" title="内存屏障深入理解"></a>内存屏障深入理解</h2><p>volatile 关键字通过插入内存屏障来实现其语义：</p>
+<ul>
+<li><strong>LoadLoad 屏障</strong>: 确保屏障前的 load 操作先于屏障后的 load 操作</li>
+<li><strong>StoreStore 屏障</strong>: 确保屏障前的 store 操作先于屏障后的 store 操作</li>
+<li><strong>LoadStore 屏障</strong>: 确保屏障前的 load 操作先于屏障后的 store 操作</li>
+<li><strong>StoreLoad 屏障</strong>: 确保屏障前的 store 操作先于屏障后的 load 操作</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// volatile变量的内存屏障插入策略</span></span><br><span class="line"><span class="keyword">volatile</span> <span class="type">int</span> v;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 写volatile变量时的内存屏障</span></span><br><span class="line">StoreStore屏障</span><br><span class="line">v = <span class="number">1</span>;  <span class="comment">// volatile写</span></span><br><span class="line">StoreLoad屏障</span><br><span class="line"></span><br><span class="line"><span class="comment">// 读volatile变量时的内存屏障</span></span><br><span class="line">LoadLoad屏障</span><br><span class="line"><span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> v;  <span class="comment">// volatile读</span></span><br><span class="line">LoadStore屏障</span><br></pre></td></tr></table></figure>
+
+<h2 id="性能考虑：volatile-vs-synchronized"><a href="#性能考虑：volatile-vs-synchronized" class="headerlink" title="性能考虑：volatile vs synchronized"></a>性能考虑：volatile vs synchronized</h2><table>
+<thead>
+<tr>
+<th>特性</th>
+<th>volatile</th>
+<th>synchronized</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>原子性</strong></td>
+<td>❌ 仅保证读写原子性</td>
+<td>✅ 保证代码块原子性</td>
+</tr>
+<tr>
+<td><strong>可见性</strong></td>
+<td>✅ 立即可见</td>
+<td>✅ 解锁时刷新到主内存</td>
+</tr>
+<tr>
+<td><strong>有序性</strong></td>
+<td>✅ 禁止重排序</td>
+<td>✅ 串行执行</td>
+</tr>
+<tr>
+<td><strong>性能</strong></td>
+<td>⚡ 较高（无锁）</td>
+<td>🐌 较低（加锁）</td>
+</tr>
+<tr>
+<td><strong>适用场景</strong></td>
+<td>状态标志、配置值</td>
+<td>复合操作、临界区</td>
+</tr>
+</tbody></table>
+<p><strong>选择建议</strong>:</p>
+<ul>
+<li>简单的状态标志 → 使用<code>volatile</code></li>
+<li>复合操作（如 i++） → 使用<code>synchronized</code>或原子类</li>
+<li>高并发计数 → 使用<code>AtomicInteger</code>等原子类</li>
+<li>复杂业务逻辑 → 使用<code>synchronized</code>或<code>Lock</code></li>
+</ul>
+<h2 id="常见误区与陷阱"><a href="#常见误区与陷阱" class="headerlink" title="常见误区与陷阱"></a>常见误区与陷阱</h2><h3 id="❌-误区-1：认为-volatile-能保证原子性"><a href="#❌-误区-1：认为-volatile-能保证原子性" class="headerlink" title="❌ 误区 1：认为 volatile 能保证原子性"></a>❌ 误区 1：认为 volatile 能保证原子性</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">volatile</span> <span class="type">int</span> <span class="variable">count</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">increment</span><span class="params">()</span> &#123;</span><br><span class="line">    count++;  <span class="comment">// 仍然不是原子操作！</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="❌-误区-2：过度使用-synchronized"><a href="#❌-误区-2：过度使用-synchronized" class="headerlink" title="❌ 误区 2：过度使用 synchronized"></a>❌ 误区 2：过度使用 synchronized</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 不必要的同步</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">synchronized</span> String <span class="title function_">getName</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> name;  <span class="comment">// 如果name是final或不会变化，无需同步</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="❌-误区-3：忽略构造函数中的”this”逸出"><a href="#❌-误区-3：忽略构造函数中的”this”逸出" class="headerlink" title="❌ 误区 3：忽略构造函数中的”this”逸出"></a>❌ 误区 3：忽略构造函数中的”this”逸出</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ThisEscape</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="type">int</span> value;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">ThisEscape</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="comment">// 危险！构造未完成就暴露this引用</span></span><br><span class="line">        EventQueue.addListener(<span class="keyword">new</span> <span class="title class_">EventListener</span>() &#123;</span><br><span class="line">            <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">onEvent</span><span class="params">(Event e)</span> &#123;</span><br><span class="line">                doSomething(e);  <span class="comment">// 可能访问到未初始化完成的对象</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;);</span><br><span class="line">        value = <span class="number">42</span>;  <span class="comment">// 这个赋值可能在listener注册之后执行</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="实际开发中的最佳实践"><a href="#实际开发中的最佳实践" class="headerlink" title="实际开发中的最佳实践"></a>实际开发中的最佳实践</h2><h3 id="1-优先使用线程安全的工具类"><a href="#1-优先使用线程安全的工具类" class="headerlink" title="1. 优先使用线程安全的工具类"></a>1. 优先使用线程安全的工具类</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 推荐使用并发集合</span></span><br><span class="line">ConcurrentHashMap&lt;String, String&gt; map = <span class="keyword">new</span> <span class="title class_">ConcurrentHashMap</span>&lt;&gt;();</span><br><span class="line">BlockingQueue&lt;Task&gt; queue = <span class="keyword">new</span> <span class="title class_">LinkedBlockingQueue</span>&lt;&gt;();</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-合理使用-volatile-的经典场景"><a href="#2-合理使用-volatile-的经典场景" class="headerlink" title="2. 合理使用 volatile 的经典场景"></a>2. 合理使用 volatile 的经典场景</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 配置更新标志</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">volatile</span> <span class="type">boolean</span> <span class="variable">configUpdated</span> <span class="operator">=</span> <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 双重检查锁定</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">volatile</span> LazySingleton instance;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 状态标志</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">volatile</span> <span class="type">boolean</span> <span class="variable">shutdown</span> <span class="operator">=</span> <span class="literal">false</span>;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-使用-final-提高安全性"><a href="#3-使用-final-提高安全性" class="headerlink" title="3. 使用 final 提高安全性"></a>3. 使用 final 提高安全性</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ImmutablePoint</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="type">int</span> x;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="type">int</span> y;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">ImmutablePoint</span><span class="params">(<span class="type">int</span> x, <span class="type">int</span> y)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.x = x;</span><br><span class="line">        <span class="built_in">this</span>.y = y;</span><br><span class="line">        <span class="comment">// final字段在构造完成后对所有线程可见</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-谨慎使用双重检查锁定"><a href="#4-谨慎使用双重检查锁定" class="headerlink" title="4. 谨慎使用双重检查锁定"></a>4. 谨慎使用双重检查锁定</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 正确的双重检查锁定实现</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">LazySingleton</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">volatile</span> LazySingleton instance;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> LazySingleton <span class="title function_">getInstance</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (instance == <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="keyword">synchronized</span> (LazySingleton.class) &#123;</span><br><span class="line">                <span class="keyword">if</span> (instance == <span class="literal">null</span>) &#123;</span><br><span class="line">                    instance = <span class="keyword">new</span> <span class="title class_">LazySingleton</span>();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>Java 内存模型是并发编程的理论基础，理解 JMM 有助于：</p>
+<ol>
+<li><strong>写出正确的并发代码</strong>：避免数据竞争和内存一致性问题</li>
+<li><strong>性能优化</strong>：合理选择同步机制，避免过度同步</li>
+<li><strong>问题排查</strong>：理解并发 bug 的根本原因</li>
+<li><strong>代码 Review</strong>：识别潜在的并发安全问题</li>
+</ol>
+<p><strong>记住这个口诀</strong>：</p>
+<ul>
+<li><strong>原子性</strong>靠锁（synchronized&#x2F;Lock）或原子类</li>
+<li><strong>可见性</strong>靠 volatile、synchronized 或 final</li>
+<li><strong>有序性</strong>靠 volatile、synchronized 或 happens-before</li>
+</ul>
+<p>最重要的是：<strong>在实际开发中，优先使用<code>java.util.concurrent</code>包下的线程安全工具类，而不是自己实现复杂的同步逻辑</strong>。这样既能保证正确性，又能获得更好的性能。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/JAVA/" rel="tag"># JAVA</a>
+              <a href="/tags/%E7%BA%BF%E7%A8%8B/" rel="tag"># 线程</a>
+              <a href="/tags/%E5%BA%95%E5%B1%82/" rel="tag"># 底层</a>
+              <a href="/tags/JVM/" rel="tag"># JVM</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2025/05/17/Java%E7%9A%84%E7%BA%BF%E7%A8%8B/" rel="prev" title="Java的线程">
+      <i class="fa fa-chevron-left"></i> Java的线程
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2025/05/23/volatile-%E4%B8%8E-synchronized/" rel="next" title="volatile 与 synchronized">
+      volatile 与 synchronized <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Java-%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B-JMM-Java-Memory-Model"><span class="nav-number">1.</span> <span class="nav-text">Java 内存模型 (JMM - Java Memory Model)</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%99%E5%9C%A8%E5%89%8D%E9%9D%A2"><span class="nav-number">1.1.</span> <span class="nav-text">写在前面</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88-JMM-%E5%A6%82%E6%AD%A4%E9%87%8D%E8%A6%81%EF%BC%9F"><span class="nav-number">1.2.</span> <span class="nav-text">为什么 JMM 如此重要？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#JMM-%E7%9A%84%E7%9B%AE%E6%A0%87%E4%B8%8E%E6%A0%B8%E5%BF%83%E9%97%AE%E9%A2%98"><span class="nav-number">1.3.</span> <span class="nav-text">JMM 的目标与核心问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#JMM-%E7%9A%84%E6%A0%B8%E5%BF%83%E6%8A%BD%E8%B1%A1%E6%A6%82%E5%BF%B5"><span class="nav-number">1.4.</span> <span class="nav-text">JMM 的核心抽象概念</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%85%E5%AD%98%E9%97%B4%E7%9A%84%E4%BA%A4%E4%BA%92%E6%93%8D%E4%BD%9C-8-%E7%A7%8D%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C-%E4%BA%86%E8%A7%A3%E5%85%B6%E8%AF%AD%E4%B9%89"><span class="nav-number">1.5.</span> <span class="nav-text">内存间的交互操作 (8 种原子操作 - 了解其语义)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B%E4%B8%AD%E7%9A%84%E4%B8%89%E5%A4%A7%E7%89%B9%E6%80%A7-JMM-%E5%A6%82%E4%BD%95%E9%80%9A%E8%BF%87%E5%85%B3%E9%94%AE%E5%AD%97%E5%92%8C%E8%A7%84%E5%88%99%E6%9D%A5%E4%BF%9D%E8%AF%81"><span class="nav-number">1.6.</span> <span class="nav-text">并发编程中的三大特性 (JMM 如何通过关键字和规则来保证)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Happens-Before-%E5%8E%9F%E5%88%99-JMM-%E4%B8%AD%E9%9D%9E%E5%B8%B8%E6%A0%B8%E5%BF%83%E7%9A%84%E8%A7%84%E5%88%99"><span class="nav-number">1.7.</span> <span class="nav-text">Happens-Before 原则 (JMM 中非常核心的规则)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%9E%E9%99%85%E4%BB%A3%E7%A0%81%E7%A4%BA%E4%BE%8B%EF%BC%9A%E7%9C%8B%E7%9C%8B-JMM-%E9%97%AE%E9%A2%98%E5%A6%82%E4%BD%95%E5%8F%91%E7%94%9F"><span class="nav-number">1.8.</span> <span class="nav-text">实际代码示例：看看 JMM 问题如何发生</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%AF%E8%A7%81%E6%80%A7%E9%97%AE%E9%A2%98%E7%A4%BA%E4%BE%8B"><span class="nav-number">1.8.1.</span> <span class="nav-text">可见性问题示例</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8E%9F%E5%AD%90%E6%80%A7%E9%97%AE%E9%A2%98%E7%A4%BA%E4%BE%8B"><span class="nav-number">1.8.2.</span> <span class="nav-text">原子性问题示例</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9C%89%E5%BA%8F%E6%80%A7%E9%97%AE%E9%A2%98%E7%A4%BA%E4%BE%8B%EF%BC%88%E5%8F%8C%E9%87%8D%E6%A3%80%E6%9F%A5%E9%94%81%E5%AE%9A%EF%BC%89"><span class="nav-number">1.8.3.</span> <span class="nav-text">有序性问题示例（双重检查锁定）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%85%E5%AD%98%E5%B1%8F%E9%9A%9C%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3"><span class="nav-number">1.9.</span> <span class="nav-text">内存屏障深入理解</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%A7%E8%83%BD%E8%80%83%E8%99%91%EF%BC%9Avolatile-vs-synchronized"><span class="nav-number">1.10.</span> <span class="nav-text">性能考虑：volatile vs synchronized</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B8%B8%E8%A7%81%E8%AF%AF%E5%8C%BA%E4%B8%8E%E9%99%B7%E9%98%B1"><span class="nav-number">1.11.</span> <span class="nav-text">常见误区与陷阱</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E2%9D%8C-%E8%AF%AF%E5%8C%BA-1%EF%BC%9A%E8%AE%A4%E4%B8%BA-volatile-%E8%83%BD%E4%BF%9D%E8%AF%81%E5%8E%9F%E5%AD%90%E6%80%A7"><span class="nav-number">1.11.1.</span> <span class="nav-text">❌ 误区 1：认为 volatile 能保证原子性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E2%9D%8C-%E8%AF%AF%E5%8C%BA-2%EF%BC%9A%E8%BF%87%E5%BA%A6%E4%BD%BF%E7%94%A8-synchronized"><span class="nav-number">1.11.2.</span> <span class="nav-text">❌ 误区 2：过度使用 synchronized</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E2%9D%8C-%E8%AF%AF%E5%8C%BA-3%EF%BC%9A%E5%BF%BD%E7%95%A5%E6%9E%84%E9%80%A0%E5%87%BD%E6%95%B0%E4%B8%AD%E7%9A%84%E2%80%9Dthis%E2%80%9D%E9%80%B8%E5%87%BA"><span class="nav-number">1.11.3.</span> <span class="nav-text">❌ 误区 3：忽略构造函数中的”this”逸出</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%9E%E9%99%85%E5%BC%80%E5%8F%91%E4%B8%AD%E7%9A%84%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><span class="nav-number">1.12.</span> <span class="nav-text">实际开发中的最佳实践</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-%E4%BC%98%E5%85%88%E4%BD%BF%E7%94%A8%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8%E7%9A%84%E5%B7%A5%E5%85%B7%E7%B1%BB"><span class="nav-number">1.12.1.</span> <span class="nav-text">1. 优先使用线程安全的工具类</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-%E5%90%88%E7%90%86%E4%BD%BF%E7%94%A8-volatile-%E7%9A%84%E7%BB%8F%E5%85%B8%E5%9C%BA%E6%99%AF"><span class="nav-number">1.12.2.</span> <span class="nav-text">2. 合理使用 volatile 的经典场景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-%E4%BD%BF%E7%94%A8-final-%E6%8F%90%E9%AB%98%E5%AE%89%E5%85%A8%E6%80%A7"><span class="nav-number">1.12.3.</span> <span class="nav-text">3. 使用 final 提高安全性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#4-%E8%B0%A8%E6%85%8E%E4%BD%BF%E7%94%A8%E5%8F%8C%E9%87%8D%E6%A3%80%E6%9F%A5%E9%94%81%E5%AE%9A"><span class="nav-number">1.12.4.</span> <span class="nav-text">4. 谨慎使用双重检查锁定</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">1.13.</span> <span class="nav-text">总结</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">makotogu</p>
+  <div class="site-description" itemprop="description">Java|数据库|分布式|架构<br>分享我的学习之路</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">5</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/makotogu?tab" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;makotogu?tab" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:jianwangp@icloud.com" title="E-Mail → mailto:jianwangp@icloud.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">makotogu</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+<script>
+if (document.querySelectorAll('pre.mermaid').length) {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/mermaid@8/dist/mermaid.min.js', () => {
+    mermaid.initialize({
+      theme    : 'forest',
+      logLevel : 3,
+      flowchart: { curve     : 'linear' },
+      gantt    : { axisFormat: '%m/%d/%Y' },
+      sequence : { actorMargin: 50 }
+    });
+  }, window.mermaid);
+}
+</script>
+
+
+  
+
+  
+
+</body>
+</html>

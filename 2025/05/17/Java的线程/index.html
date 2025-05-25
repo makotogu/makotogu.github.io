@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 7.3.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"makotogu.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="Java 线程与操作系统线程写在前面线程是现代 Java 应用程序的核心构建块，无论是 Web 服务的请求处理、批量任务的并行执行，还是实时数据处理，都离不开对线程的深入理解。在面试和实际开发中，线程相关的问题往往是考察候选人技术深度的重要指标。 本文将深入探讨 Java 线程的底层实现机制，从JVM 线程模型到操作系统线程映射，从线程状态转换到实际编程应用。通过学习本文，您将能够：  💡 理解">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Java的线程">
+<meta property="og:url" content="https://makotogu.github.io/2025/05/17/Java%E7%9A%84%E7%BA%BF%E7%A8%8B/index.html">
+<meta property="og:site_name" content="makotogu的小博客">
+<meta property="og:description" content="Java 线程与操作系统线程写在前面线程是现代 Java 应用程序的核心构建块，无论是 Web 服务的请求处理、批量任务的并行执行，还是实时数据处理，都离不开对线程的深入理解。在面试和实际开发中，线程相关的问题往往是考察候选人技术深度的重要指标。 本文将深入探讨 Java 线程的底层实现机制，从JVM 线程模型到操作系统线程映射，从线程状态转换到实际编程应用。通过学习本文，您将能够：  💡 理解">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-05-17T03:18:31.000Z">
+<meta property="article:modified_time" content="2025-05-23T05:12:21.237Z">
+<meta property="article:author" content="makotogu">
+<meta property="article:tag" content="JAVA">
+<meta property="article:tag" content="线程">
+<meta property="article:tag" content="底层">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://makotogu.github.io/2025/05/17/Java%E7%9A%84%E7%BA%BF%E7%A8%8B/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Java的线程 | makotogu的小博客</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">makotogu的小博客</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">记录生活，记录技术</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://makotogu.github.io/2025/05/17/Java%E7%9A%84%E7%BA%BF%E7%A8%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="makotogu">
+      <meta itemprop="description" content="Java|数据库|分布式|架构<br>分享我的学习之路">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="makotogu的小博客">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Java的线程
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2025-05-17 11:18:31" itemprop="dateCreated datePublished" datetime="2025-05-17T11:18:31+08:00">2025-05-17</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-05-23 13:12:21" itemprop="dateModified" datetime="2025-05-23T13:12:21+08:00">2025-05-23</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%8A%80%E6%9C%AF%E5%88%86%E4%BA%AB/" itemprop="url" rel="index"><span itemprop="name">技术分享</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="Java-线程与操作系统线程"><a href="#Java-线程与操作系统线程" class="headerlink" title="Java 线程与操作系统线程"></a>Java 线程与操作系统线程</h1><h2 id="写在前面"><a href="#写在前面" class="headerlink" title="写在前面"></a>写在前面</h2><p>线程是现代 Java 应用程序的核心构建块，无论是 Web 服务的请求处理、批量任务的并行执行，还是实时数据处理，都离不开对线程的深入理解。在面试和实际开发中，线程相关的问题往往是考察候选人技术深度的重要指标。</p>
+<p>本文将深入探讨 Java 线程的底层实现机制，从<strong>JVM 线程模型</strong>到<strong>操作系统线程映射</strong>，从<strong>线程状态转换</strong>到<strong>实际编程应用</strong>。通过学习本文，您将能够：</p>
+<ul>
+<li>💡 <strong>理解底层原理</strong>：掌握 Java 线程与 OS 线程的映射关系</li>
+<li>🎯 <strong>精通状态管理</strong>：深入理解线程生命周期和状态转换</li>
+<li>🔧 <strong>熟练使用 API</strong>：掌握 Thread 类的核心方法和最佳实践</li>
+<li>🚀 <strong>解决实际问题</strong>：能够分析和解决常见的线程相关问题</li>
+</ul>
+<h2 id="为什么要深入理解线程？"><a href="#为什么要深入理解线程？" class="headerlink" title="为什么要深入理解线程？"></a>为什么要深入理解线程？</h2><blockquote>
+<p><strong>实际场景</strong>：在优化一个高并发 Web 应用时，发现系统在高负载下响应缓慢。通过分析线程 dump 发现，大量线程阻塞在某个同步方法上。理解线程状态转换和锁机制后，成功通过优化锁粒度和使用并发工具类解决了性能瓶颈。</p>
+</blockquote>
+<p>现代应用程序几乎都是多线程的，深入理解线程有助于：</p>
+<ul>
+<li><strong>性能调优</strong>：识别和解决线程竞争、死锁等问题</li>
+<li><strong>系统设计</strong>：合理设计并发架构，提高系统吞吐量</li>
+<li><strong>问题排查</strong>：快速定位生产环境中的并发问题</li>
+<li><strong>技术面试</strong>：线程是 Java 面试的高频考点</li>
+</ul>
+<h2 id="采用一对一模型"><a href="#采用一对一模型" class="headerlink" title="采用一对一模型"></a>采用一对一模型</h2><ul>
+<li><strong>关系</strong>: 主流 JVM（如 HotSpot）采用”一对一”线程模型：一个 Java 线程映射到一个操作系统内核线程。</li>
+<li><strong>特点</strong>:<ul>
+<li><strong>优点</strong>: 充分利用多核 CPU，操作系统级调度，阻塞不影响其他线程。</li>
+<li><strong>缺点</strong>: 创建&#x2F;销毁&#x2F;切换成本高（重量级），线程数量受限。</li>
+</ul>
+</li>
+</ul>
+<pre class="mermaid" style="text-align: center;">
+            graph LR
+            subgraph OS Kernel
+KThread1[Kernel Thread 1]
+KThread2[Kernel Thread 2]
+KThreadN[Kernel Thread N]
+end
+subgraph JVM Process
+JThread1[Java Thread 1] --- KThread1
+JThread2[Java Thread 2] --- KThread2
+JThreadN[Java Thread N] --- KThreadN
+end
+UserApp[User Application] -- Creates --> JThread1
+UserApp -- Creates --> JThread2
+UserApp -- Creates --> JThreadN
+          </pre>
+
+<span id="more"></span>
+
+<h2 id="JVM-的线程生命周期"><a href="#JVM-的线程生命周期" class="headerlink" title="JVM 的线程生命周期"></a>JVM 的线程生命周期</h2><p>JVM 规范定义了线程的 6 种状态：</p>
+<ul>
+<li>NEW：线程刚被创建，但尚未调用 <code>start()</code> 方法。</li>
+<li>RUNNABLE：线程已调用 <code>start()</code> 方法，在 JVM 中等待 CPU 调度执行（可能对应操作系统的 <code>Ready</code> 或 <code>Running</code> 状态）。</li>
+<li>BLOCKED：线程等待获取一个监视器锁（<code>monitor lock</code>，即 <code>synchronized</code> 块或方法）而阻塞。</li>
+<li>WAITING：线程无限期等待另一个线程执行一个特定的唤醒动作。例如，调用了 <code>Object.wait()</code> (无超时)，<code>Thread.join()</code> (无超时)，或 <code>LockSupport.park()</code>。</li>
+<li>TIMED_WAITING：线程在指定的时间内等待另一个线程执行一个特定的唤醒动作。例如，调用了 <code>Thread.sleep(t)</code>, <code>Object.wait(t)</code>, <code>Thread.join(t)</code>, <code>LockSupport.parkNanos(t)</code>, <code>LockSupport.parkUntil(deadline)</code>。</li>
+<li>TERMINATED：线程的 <code>run()</code> 方法已经执行完毕并正常退出，或者因为一个未捕获的异常而提前终止。</li>
+</ul>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentStyleType="text/css" data-diagram-type="STATE" height="516px" preserveAspectRatio="none" style="width:1023px;height:516px;background:#FFFFFF;" version="1.1" viewBox="0 0 1023 516" width="1023px" zoomAndPan="magnify"><title>JVM Thread States</title><defs/><g><g class="title" data-source-line="1"><text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" lengthAdjust="spacing" textLength="145.8516" x="431.7924" y="22.9951">JVM Thread States</text></g><rect fill="#F1F1F1" height="40" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="50" x="652.47" y="44.2969"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="33.1611" x="660.8894" y="69.1436">NEW</text><rect fill="#F1F1F1" height="40" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="86.7471" x="393.09" y="206.4369"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="76.7471" x="398.09" y="231.2836">RUNNABLE</text><rect fill="#F1F1F1" height="40" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="77.0059" x="338.97" y="470.5669"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="67.0059" x="343.97" y="495.4136">BLOCKED</text><rect fill="#F1F1F1" height="40" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="71.5508" x="515.69" y="353.5669"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="61.5508" x="520.69" y="378.4136">WAITING</text><rect fill="#F1F1F1" height="40" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="122.9365" x="7" y="44.2969"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="112.9365" x="12" y="69.1436">TIMED_WAITING</text><rect fill="#F1F1F1" height="40" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="101.5605" x="645.69" y="206.4369"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="91.5605" x="650.69" y="231.2836">TERMINATED</text><ellipse cx="520.47" cy="64.2969" fill="#222222" rx="10" ry="10" style="stroke:#222222;stroke-width:1;"/><ellipse cx="793.47" cy="226.4369" fill="none" rx="11" ry="11" style="stroke:#222222;stroke-width:1;"/><ellipse cx="793.47" cy="226.4369" fill="#222222" rx="6" ry="6" style="stroke:#222222;stroke-width:1;"/><g class="entity" data-entity="GMN2" data-source-line="32" data-uid="ent0003" id="entity_GMN2"><path d="M78.74,206.2969 L78.74,246.5625 A0,0 0 0 0 78.74,246.5625 L358.2039,246.5625 A0,0 0 0 0 358.2039,246.5625 L358.2039,230.4369 L392.64,226.4369 L358.2039,222.4369 L358.2039,216.2969 L348.2039,206.2969 L78.74,206.2969 A0,0 0 0 0 78.74,206.2969" fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><path d="M348.2039,206.2969 L348.2039,216.2969 L358.2039,216.2969 L348.2039,206.2969" fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="258.4639" x="84.74" y="223.3638">JVM RUNNABLE state can correspond to</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="202.7886" x="84.74" y="238.4966">OS Ready or OS Running state.</text></g><!--link *start* to NEW--><g class="link" data-entity-1="*start*" data-entity-2="NEW" data-source-line="11" data-uid="lnk3" id="link_*start*_NEW"><path d="M530.77,64.2969 C555.12,64.2969 610.84,64.2969 645.97,64.2969" fill="none" id="*start*-to-NEW" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="651.97,64.2969,642.97,60.2969,646.97,64.2969,642.97,68.2969,651.97,64.2969" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="86.8867" x="548.47" y="57.3638">new Thread()</text></g><!--link NEW to RUNNABLE--><g class="link" data-entity-1="NEW" data-entity-2="RUNNABLE" data-source-line="12" data-uid="lnk4" id="link_NEW_RUNNABLE"><path d="M676.18,84.3969 C673.46,109.2469 664.97,152.3069 638.47,176.2969 C615.46,197.1369 538.117,211.2797 485.947,218.8997" fill="none" id="NEW-to-RUNNABLE" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="480.01,219.7669,489.4936,222.4241,484.9575,219.0442,488.3374,214.5081,480.01,219.7669" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="87.4517" x="672.47" y="149.8638">thread.start()</text></g><!--reverse link BLOCKED to RUNNABLE--><g class="link" data-entity-1="BLOCKED" data-entity-2="RUNNABLE" data-source-line="15" data-uid="lnk6" id="link_BLOCKED_RUNNABLE"><path d="M422.3608,487.3253 C505.6508,482.7153 692.38,469.5169 750.47,440.5669 C815.73,408.0469 837.86,391.0469 865.47,323.5669 C873.38,304.2369 879.37,292.1569 865.47,276.5669 C859.07,269.3969 587.82,242.2069 480,231.6569" fill="none" id="BLOCKED-backto-RUNNABLE" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="416.37,487.6569,425.5773,491.1534,421.3624,487.3806,425.1352,483.1656,416.37,487.6569" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="163.9663" x="851.47" y="370.6338">Enter synchronized block</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="127.4609" x="869.7227" y="385.7666">(lock held by other)</text></g><!--reverse link RUNNABLE to BLOCKED--><g class="link" data-entity-1="RUNNABLE" data-entity-2="BLOCKED" data-source-line="16" data-uid="lnk8" id="link_RUNNABLE_BLOCKED"><path d="M387.4997,249.6791 C373.6197,257.4191 364.32,264.4769 353.47,276.5669 C328.36,304.5469 326.43,316.8269 318.47,353.5669 C314.7,370.9369 313.63,376.4569 318.47,393.5669 C326.72,422.7469 346.61,451.7869 361.02,470.1569" fill="none" id="RUNNABLE-backto-BLOCKED" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="392.74,246.7569,382.9314,247.6466,388.3731,249.192,386.8277,254.6337,392.74,246.7569" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="178.5596" x="319.47" y="378.1338">Acquired synchronized lock</text></g><!--reverse link WAITING to RUNNABLE--><g class="link" data-entity-1="WAITING" data-entity-2="RUNNABLE" data-source-line="18" data-uid="lnk10" id="link_WAITING_RUNNABLE"><path d="M509.4927,359.604 C500.7527,356.984 497.17,355.9769 488.47,353.5669 C435.9,339.0169 402.99,366.5869 369.47,323.5669 C356.63,307.0869 360.03,295.1969 369.47,276.5669 C375.66,264.3469 386.49,254.4269 397.65,246.7869" fill="none" id="WAITING-backto-RUNNABLE" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="515.24,361.3269,507.7676,354.911,510.4506,359.8911,505.4704,362.5741,515.24,361.3269" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="61.4009" x="402.0845" y="289.6338">obj.wait()</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="42.7896" x="411.3902" y="304.7666">t.join()</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="124.6299" x="370.47" y="319.8994">LockSupport.park()</text></g><!--reverse link RUNNABLE to WAITING--><g class="link" data-entity-1="RUNNABLE" data-entity-2="WAITING" data-source-line="19" data-uid="lnk12" id="link_RUNNABLE_WAITING"><path d="M471.0713,250.2612 C482.3813,258.5412 489.97,265.3469 499.47,276.5669 C519.43,300.1469 535.05,332.6169 543.77,353.0969" fill="none" id="RUNNABLE-backto-WAITING" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="466.23,246.7169,471.1291,255.2608,470.2644,249.6704,475.8548,248.8058,466.23,246.7169" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="147.3418" x="620.2957" y="289.6338">obj.notify() / notifyAll()</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="146.2056" x="620.8638" y="304.7666">LockSupport.unpark(t)</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="326.9932" x="530.47" y="319.8994">Interrupted (leads to RUNNABLE after handling IE)</text></g><!--reverse link TIMED_WAITING to RUNNABLE--><g class="link" data-entity-1="TIMED_WAITING" data-entity-2="RUNNABLE" data-source-line="21" data-uid="lnk14" id="link_TIMED_WAITING_RUNNABLE"><path d="M136.0945,67.3031 C219.8545,70.8831 357.79,81.5169 397.47,114.2969 C411.89,126.2169 425.62,177.8869 432.28,206.3869" fill="none" id="TIMED_WAITING-backto-RUNNABLE" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="130.1,67.0469,138.921,71.4275,135.0954,67.2604,139.2626,63.4348,130.1,67.0469" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="99.7471" x="476.4673" y="127.3638">Thread.sleep(t)</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="66.498" x="493.0918" y="142.4966">obj.wait(t)</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="47.8867" x="502.3975" y="157.6294">t.join(t)</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="199.7417" x="426.47" y="172.7622">LockSupport.parkNanos/Until()</text></g><!--link TIMED_WAITING to RUNNABLE--><g class="link" data-entity-1="TIMED_WAITING" data-entity-2="RUNNABLE" data-source-line="22" data-uid="lnk15" id="link_TIMED_WAITING_RUNNABLE"><path d="M59.82,84.5169 C50.22,109.0969 38.87,151.4369 61.47,176.2969 C108.62,228.1669 306.76,192.4069 375.47,206.2969 C381.13,207.4469 381.2208,207.3043 386.9908,208.9143" fill="none" id="TIMED_WAITING-to-RUNNABLE" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="392.77,210.5269,385.1762,204.2552,387.954,209.1831,383.0261,211.9608,392.77,210.5269" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="53.5044" x="199.2144" y="127.3638">Timeout</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="147.3418" x="152.2957" y="142.4966">obj.notify() / notifyAll()</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="146.2056" x="152.8638" y="157.6294">LockSupport.unpark(t)</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="326.9932" x="62.47" y="172.7622">Interrupted (leads to RUNNABLE after handling IE)</text></g><!--link WAITING to BLOCKED--><g class="link" data-entity-1="WAITING" data-entity-2="BLOCKED" data-source-line="25" data-uid="lnk16" id="link_WAITING_BLOCKED"><path d="M522.34,393.8169 C490.23,415.0469 443.8454,445.6985 411.6954,466.9485" fill="none" id="WAITING-to-BLOCKED" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="406.69,470.2569,416.4038,468.6312,410.8612,467.4999,411.9925,461.9573,406.69,470.2569" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="265.2559" x="476.47" y="436.6338">Awakened, tries to re-acquire lock (held)</text></g><!--link TIMED_WAITING to BLOCKED--><g class="link" data-entity-1="TIMED_WAITING" data-entity-2="BLOCKED" data-source-line="26" data-uid="lnk17" id="link_TIMED_WAITING_BLOCKED"><path d="M54.23,84.7669 C48.79,93.3769 43.23,103.8869 40.47,114.2969 C28.15,160.6669 38.86,304.6169 51.47,323.5669 C118.85,424.8169 261.9714,466.2279 332.7814,481.2979" fill="none" id="TIMED_WAITING-to-BLOCKED" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="338.65,482.5469,330.6798,476.761,333.7595,481.5061,329.0145,484.5858,338.65,482.5469" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="265.2559" x="52.47" y="304.6338">Awakened, tries to re-acquire lock (held)</text></g><!--link RUNNABLE to TERMINATED--><g class="link" data-entity-1="RUNNABLE" data-entity-2="TERMINATED" data-source-line="28" data-uid="lnk18" id="link_RUNNABLE_TERMINATED"><path d="M480.28,226.4369 C525.87,226.4369 591.19,226.4369 639.33,226.4369" fill="none" id="RUNNABLE-to-TERMINATED" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="645.33,226.4369,636.33,222.4369,640.33,226.4369,636.33,230.4369,645.33,226.4369" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="121.0244" x="502.5193" y="204.5038">run() completes or</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="129.543" x="498.26" y="219.6366">uncaught exception</text></g><!--link TERMINATED to *end*--><g class="link" data-entity-1="TERMINATED" data-entity-2="*end*" data-source-line="30" data-uid="lnk20" id="link_TERMINATED_*end*"><path d="M747.62,226.4369 C759.08,226.4369 764.54,226.4369 776.01,226.4369" fill="none" id="TERMINATED-to-*end*" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="782.01,226.4369,773.01,222.4369,777.01,226.4369,773.01,230.4369,782.01,226.4369" style="stroke:#181818;stroke-width:1;"/></g><!--SRC=[jLHBRzim3BxhL_3MPAYJ-mu3tDKOl2KkaBZheHa6rMPgDGxboHIoxDUFSfpdiik0dVGW-P4VNsouHlZyTGfvvL2NC6VDsAhAb0YuRdWB9RQ5CmqRIqgrGGnPyjJVPezP5jzDalvvDtdu-2MvxrzFSPgdsQV-bQVJvFxxnLyocwPPd8k9Udxt3I9dNYkEFWGFy1u8DtrSWw4ANr5fDoJYlLlHuKu-4Zp7egNKGHRLk0nOVL2Ycn2ZWtPBHUKicLzOmajjYzM21k602clvsOBb2jrGxGqZtvpxZ8iVtZYnFeCA45VSzup5pBwyZJRQI9WBuj6RDHHk4p6R-wQnZaUDTYiXiJVvmt508CjckHqCOGoxQrpNbpYUEYIMxpHmThvXYN1GIwfQO7l4rCkGaafJMHjwXJGPNg5mLZe98-zpNYCsdPC3CpvIuolSCass7JyI6mbPdSDUgMrkrcWzx_3_F- -RdbWBUgDNI6AvT7RTLN1y7YoX20LFr7Uzq5M_lON2-j13MDZrOHnkr2N7Oql6lQTRO6UmtM56fw0m26tvjspz2z99WVVpTXn4GN9U6bEOh9iQPHc0TGloL6Wlke0_2-oNmOdH0KYcM2cfZtYKtW6xFArds3E7vsu359h4atFODfP2IXVqC8UPL476q46uUw9Geav_z1i0]--></g></svg>
+
+<h2 id="操作系统（LINUX）的线程生命周期"><a href="#操作系统（LINUX）的线程生命周期" class="headerlink" title="操作系统（LINUX）的线程生命周期"></a>操作系统（LINUX）的线程生命周期</h2><p>操作系统层面的线程状态比 JVM 定义的更细致一些，并且不同操作系统的术语可能略有差异。以下是一个通用的模型，常用于类 Unix 系统（如 Linux）：</p>
+<ul>
+<li><strong>New (新建)</strong>: 线程刚被创建，系统为其分配了资源（如线程控制块 TCB），但尚未被调度执行。 (类似 JVM NEW)</li>
+<li><strong>Ready (就绪)</strong>: 线程已准备好运行，拥有了除 CPU 之外的所有必需资源，正在等待 CPU 调度器分配 CPU 时间片。</li>
+<li><strong>Running (运行)</strong>: 线程正在 CPU 上执行指令。</li>
+<li><strong>Blocked&#x2F;Waiting&#x2F;Sleeping (阻塞&#x2F;等待&#x2F;睡眠)</strong>: 线程因为等待某个事件而暂停执行，例如：<ul>
+<li>等待 I&#x2F;O 操作完成。</li>
+<li>等待获取一个锁或信号量。</li>
+<li>主动调用 sleep。</li>
+<li>等待另一个线程的信号 (wait, join)。</li>
+<li>(类似 JVM BLOCKED, WAITING, TIMED_WAITING)</li>
+</ul>
+</li>
+<li><strong>Terminated&#x2F;Zombie (终止&#x2F;僵尸)</strong>: 线程执行完毕或被终止，但其 TCB 可能尚未被父进程或系统完全回收（例如，等待父进程读取其退出状态）。最终会被彻底清理。 (类似 JVM TERMINATED)</li>
+</ul>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentStyleType="text/css" data-diagram-type="STATE" height="487px" preserveAspectRatio="none" style="width:874px;height:487px;background:#FFFFFF;" version="1.1" viewBox="0 0 874 487" width="874px" zoomAndPan="magnify"><title>OS Thread States (Generic Model)</title><defs/><g><g class="title" data-source-line="1"><text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" lengthAdjust="spacing" textLength="268.7207" x="295.6396" y="22.9951">OS Thread States (Generic Model)</text></g><rect fill="#F1F1F1" height="40" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="50" x="211" y="44.2969"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="30.5361" x="220.7319" y="69.1436">New</text><rect fill="#F1F1F1" height="40" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="54.0918" x="208.95" y="176.4269"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="44.0918" x="213.95" y="201.2736">Ready</text><rect fill="#F1F1F1" height="40" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="67.9961" x="445" y="308.5569"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="57.9961" x="450" y="333.4036">Running</text><rect fill="#F1F1F1" height="40" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="65.3643" x="171.32" y="440.6969"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="55.3643" x="176.32" y="465.5436">Blocked</text><rect fill="#F1F1F1" height="40" rx="12.5" ry="12.5" style="stroke:#181818;stroke-width:0.5;" width="90.8896" x="583.56" y="440.6969"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="80.8896" x="588.56" y="465.5436">Terminated</text><ellipse cx="16" cy="64.2969" fill="#222222" rx="10" ry="10" style="stroke:#222222;stroke-width:1;"/><ellipse cx="857" cy="460.6969" fill="none" rx="11" ry="11" style="stroke:#222222;stroke-width:1;"/><ellipse cx="857" cy="460.6969" fill="#222222" rx="6" ry="6" style="stroke:#222222;stroke-width:1;"/><g class="entity" data-entity="GMN2" data-source-line="26" data-uid="ent0003" id="entity_GMN2"><path d="M297.64,176.2969 L297.64,192.4269 L263.52,196.4269 L297.64,200.4269 L297.64,216.5625 A0,0 0 0 0 297.64,216.5625 L560.3588,216.5625 A0,0 0 0 0 560.3588,216.5625 L560.3588,186.2969 L550.3588,176.2969 L297.64,176.2969 A0,0 0 0 0 297.64,176.2969" fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><path d="M550.3588,176.2969 L550.3588,186.2969 L560.3588,186.2969 L550.3588,176.2969" fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="241.7188" x="303.64" y="193.3638">JVM's RUNNABLE state often maps to</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="209.5615" x="303.64" y="208.4966">OS Ready or OS Running states.</text></g><g class="entity" data-entity="GMN5" data-source-line="27" data-uid="ent0006" id="entity_GMN5"><path d="M285.64,440.5569 L285.64,480.8225 A0,0 0 0 0 285.64,480.8225 L548.3588,480.8225 A0,0 0 0 0 548.3588,480.8225 L548.3588,450.5569 L538.3588,440.5569 L430.35,440.5569 L469.72,349.0469 L422.35,440.5569 L285.64,440.5569 A0,0 0 0 0 285.64,440.5569" fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><path d="M538.3588,440.5569 L538.3588,450.5569 L548.3588,450.5569 L538.3588,440.5569" fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="241.7188" x="291.64" y="457.6238">JVM's RUNNABLE state often maps to</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="209.5615" x="291.64" y="472.7566">OS Ready or OS Running states.</text></g><!--link *start* to New--><g class="link" data-entity-1="*start*" data-entity-2="New" data-source-line="9" data-uid="lnk3" id="link_*start*_New"><path d="M26.32,64.2969 C59.28,64.2969 156.7,64.2969 204.86,64.2969" fill="none" id="*start*-to-New" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="210.86,64.2969,201.86,60.2969,205.86,64.2969,201.86,68.2969,210.86,64.2969" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="149.3159" x="44" y="57.3638">Process creates thread</text></g><!--link New to Ready--><g class="link" data-entity-1="New" data-entity-2="Ready" data-source-line="10" data-uid="lnk4" id="link_New_Ready"><path d="M236,84.7769 C236,109.4569 236,145.7069 236,170.2369" fill="none" id="New-to-Ready" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="236,176.2369,240,167.2369,236,171.2369,232,167.2369,236,176.2369" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="116.4414" x="237" y="127.3638">Thread initialized,</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="80.3931" x="255.0242" y="142.4966">ready to run</text></g><!--link Ready to Running--><g class="link" data-entity-1="Ready" data-entity-2="Running" data-source-line="12" data-uid="lnk5" id="link_Ready_Running"><path d="M263.09,210.3669 C268.6,212.6669 274.42,214.8669 280,216.5569 C351.75,238.3169 387.77,199.3369 446,246.5569 C464.87,261.8669 471.9428,283.778 475.4228,302.488" fill="none" id="Ready-to-Running" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="476.52,308.3869,478.8068,298.8072,475.6057,303.4712,470.9417,300.2701,476.52,308.3869" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="139.3247" x="468" y="259.6238">Scheduler dispatches</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="98.5728" x="488.376" y="274.7566">(CPU assigned)</text></g><!--link Running to Ready--><g class="link" data-entity-1="Running" data-entity-2="Ready" data-source-line="14" data-uid="lnk6" id="link_Running_Ready"><path d="M444.72,315.9269 C436.07,313.2569 426.75,310.6069 418,308.5569 C376.59,298.8769 256.61,310.9069 229,278.5569 C214.59,261.6769 218.4064,240.6135 225.1164,222.4935" fill="none" id="Running-to-Ready" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="227.2,216.8669,220.3236,223.9177,225.4637,221.5557,227.8257,226.6958,227.2,216.8669" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="207.2383" x="230" y="259.6238">Timeslice expired / Preempted /</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="31.4146" x="317.9119" y="274.7566">Yield</text></g><!--link Running to Blocked--><g class="link" data-entity-1="Running" data-entity-2="Blocked" data-source-line="15" data-uid="lnk7" id="link_Running_Blocked"><path d="M444.62,340.7969 C435.97,343.4769 426.68,346.2369 418,348.5569 C359.47,364.2469 338.06,349.2969 285,378.5569 C257.11,393.9369 236.1384,417.0544 221.5484,435.7744" fill="none" id="Running-to-Blocked" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="217.86,440.5069,226.5475,435.8671,220.9336,436.5632,220.2376,430.9493,217.86,440.5069" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="145.2471" x="286" y="391.6238">Waiting for I/O / Lock /</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="112.4678" x="302.3896" y="406.7566">Event / Sleep call</text></g><!--link Blocked to Ready--><g class="link" data-entity-1="Blocked" data-entity-2="Ready" data-source-line="17" data-uid="lnk8" id="link_Blocked_Ready"><path d="M200.71,440.5169 C196.28,411.7269 189.66,355.6969 196,308.5569 C199.81,280.2469 203.13,273.3769 213,246.5569 C216.71,236.4869 219.0476,231.0286 223.4076,222.0986" fill="none" id="Blocked-to-Ready" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="226.04,216.7069,218.4969,223.0394,223.8463,221.1999,225.6858,226.5494,226.04,216.7069" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="195.2095" x="214.5068" y="325.6238">Event occurs / I/O completes /</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="230.2231" x="197" y="340.7566">Lock acquired / Sleep timer expires</text></g><!--link Running to Terminated--><g class="link" data-entity-1="Running" data-entity-2="Terminated" data-source-line="19" data-uid="lnk9" id="link_Running_Terminated"><path d="M501.46,349.0469 C529.9,373.7169 574.0683,412.0345 602.3483,436.5745" fill="none" id="Running-to-Terminated" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="606.88,440.5069,602.704,431.5872,603.1036,437.2299,597.4609,437.6294,606.88,440.5069" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="176.3188" x="572" y="391.6238">Thread finishes execution /</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="79.644" x="620.3374" y="406.7566">Exits / Killed</text></g><!--link Terminated to *end*--><g class="link" data-entity-1="Terminated" data-entity-2="*end*" data-source-line="24" data-uid="lnk11" id="link_Terminated_*end*"><path d="M674.86,460.6969 C728.96,460.6969 809.39,460.6969 839.9,460.6969" fill="none" id="Terminated-to-*end*" style="stroke:#181818;stroke-width:1;"/><polygon fill="#181818" points="845.9,460.6969,836.9,456.6969,840.9,460.6969,836.9,464.6969,845.9,460.6969" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="135.9858" x="692.72" y="453.7638">Resources reclaimed</text></g><!--SRC=[fLDDJnmn3BtdL_YsK9Lovu1KAbIrNHR4GYl4SaWJxwxLJ3B4dXRww-jaib-zLRqva_UUNvuzGX8GhkTmjyveFSp52Z8SVSI8cHnS9O_XsAp98s3NoojuP9Uf5qhHS47337-rwbObNZVr42F5LJjTXEH-e6-dEymTHQsyCOzldk3al8Z06Tpav90Pd9efFgIwCkNoH45LNs7DB4KIie5-et-xYBbUIe8yH6D6Q2MDHfGsTslqGy0CdhYteaTUnACFD_TWcMaLqHyhi-4F6bA77CXf22yzPVHmgbwn95BgHNmW3Fw0sbwiv6zMRUhNPShmwVHQgLEzAgpBdnX5p_E0s8Ep8HYpuUst7t79kI6pmek8IrqVi6IaEbNFkkUXMHlrH4tdPfWFtxKRm2xDfSR9ceWoq0rbljNY2qdf-OL2q75DO5hdaxfExxqgEm79DZ8L1fVyzyGdIcYJ-AlfPjAo-RXhKbdR6Fw9P_QmoYoxTQO6E0rPMQ1kWzLKTErYqZtCj5fhhijjq9-_NaqORkzdi_SNqqiOjpKj1IDqjY-lMqJzMKQuZhFKBTQAvNUZyFSaahgglDs-_zV-0m00]--></g></svg>
+
+<h1 id="Java-线程的操作"><a href="#Java-线程的操作" class="headerlink" title="Java 线程的操作"></a>Java 线程的操作</h1><p>主要涉及:</p>
+<ul>
+<li><code>java.lang.Thread</code> 线程的核心方法</li>
+<li><code>java.lang.Object</code> 中与线程协作相关的方法</li>
+</ul>
+<h2 id="启动与执行"><a href="#启动与执行" class="headerlink" title="启动与执行"></a>启动与执行</h2><ul>
+<li><p><strong><code>void start()</code></strong></p>
+<ul>
+<li><strong>作用</strong>: 启动一个新线程。JVM 会为此线程分配资源（包括创建一个对应的 OS 内核线程），并使其进入<code>RUNNABLE</code>状态，等待 CPU 调度。一旦调度，新线程会自动调用该<code>Thread</code>对象的<code>run()</code>方法。</li>
+<li><strong>特点</strong>: 一个<code>Thread</code>对象的<code>start()</code>方法只能被调用一次。多次调用会抛出<code>IllegalThreadStateException</code>。</li>
+<li><strong>状态转换</strong>: <code>NEW</code> -&gt; <code>RUNNABLE</code></li>
+</ul>
+</li>
+<li><p><strong><code>void run()</code></strong></p>
+<ul>
+<li><strong>作用</strong>: 包含了线程要执行的具体任务逻辑。这个方法本身不创建新线程。</li>
+<li><strong>调用方式</strong>:<ul>
+<li>由<code>start()</code>方法在新线程中隐式调用。</li>
+<li>如果直接调用<code>thread.run()</code>，则任务会在当前调用线程中同步执行，不会创建新线程。</li>
+</ul>
+</li>
+</ul>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentStyleType="text/css" data-diagram-type="SEQUENCE" height="481px" preserveAspectRatio="none" style="width:871px;height:481px;background:#FFFFFF;" version="1.1" viewBox="0 0 871 481" width="871px" zoomAndPan="magnify"><title>Thread Start vs Run</title><defs/><g><text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" lengthAdjust="spacing" textLength="157.999" x="355.7251" y="27.9951">Thread Start vs Run</text><g><title>Thread t</title><rect fill="#FFFFFF" height="116.5313" style="stroke:#181818;stroke-width:1;" width="10" x="226.5674" y="178.8594"/></g><g><title>Thread t</title><rect fill="#FFFFFF" height="29.1328" style="stroke:#181818;stroke-width:1;" width="10" x="226.5674" y="353.6563"/></g><g><title>New Execution Thread</title><rect fill="#FFFFFF" height="58.2656" style="stroke:#181818;stroke-width:1;" width="10" x="666.5391" y="324.5234"/></g><g><title>User</title><rect fill="#000000" fill-opacity="0.00000" height="282.1953" width="8" x="19.9551" y="118.5938"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="23" x2="23" y1="118.5938" y2="400.7891"/></g><g><title>Thread t</title><rect fill="#000000" fill-opacity="0.00000" height="282.1953" width="8" x="227.5674" y="118.5938"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="230.9678" x2="230.9678" y1="118.5938" y2="400.7891"/></g><g><title>JVM</title><rect fill="#000000" fill-opacity="0.00000" height="282.1953" width="8" x="387.9893" y="118.5938"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="391.0967" x2="391.0967" y1="118.5938" y2="400.7891"/></g><g><title>OS</title><rect fill="#000000" fill-opacity="0.00000" height="282.1953" width="8" x="554.6719" y="118.5938"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="557.7188" x2="557.7188" y1="118.5938" y2="400.7891"/></g><g><title>New Execution Thread</title><rect fill="#000000" fill-opacity="0.00000" height="282.1953" width="8" x="667.5391" y="118.5938"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="670.625" x2="670.625" y1="118.5938" y2="400.7891"/></g><g><title>Runnable</title><rect fill="#000000" fill-opacity="0.00000" height="282.1953" width="8" x="821.2915" y="118.5938"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="825.1338" x2="825.1338" y1="118.5938" y2="400.7891"/></g><g class="participant participant-head" data-participant="User"><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="31.9102" x="5" y="115.292">User</text><ellipse cx="23.9551" cy="50.7969" fill="#E2E2F0" rx="8" ry="8" style="stroke:#181818;stroke-width:0.5;"/><path d="M23.9551,58.7969 L23.9551,85.7969 M10.9551,66.7969 L36.9551,66.7969 M23.9551,85.7969 L10.9551,100.7969 M23.9551,85.7969 L36.9551,100.7969" fill="none" style="stroke:#181818;stroke-width:0.5;"/></g><g class="participant participant-tail" data-participant="User"><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="31.9102" x="5" y="412.7842">User</text><ellipse cx="23.9551" cy="424.5859" fill="#E2E2F0" rx="8" ry="8" style="stroke:#181818;stroke-width:0.5;"/><path d="M23.9551,432.5859 L23.9551,459.5859 M10.9551,440.5859 L36.9551,440.5859 M23.9551,459.5859 L10.9551,474.5859 M23.9551,459.5859 L36.9551,474.5859" fill="none" style="stroke:#181818;stroke-width:0.5;"/></g><g class="participant participant-head" data-participant="T"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="73.1992" x="194.9678" y="87.2969"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="59.1992" x="201.9678" y="107.292">Thread t</text></g><g class="participant participant-tail" data-participant="T"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="73.1992" x="194.9678" y="399.7891"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="59.1992" x="201.9678" y="419.7842">Thread t</text></g><g class="participant participant-head" data-participant="JVM"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="39.7852" x="372.0967" y="87.2969"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="25.7852" x="379.0967" y="107.292">JVM</text></g><g class="participant participant-tail" data-participant="JVM"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="39.7852" x="372.0967" y="399.7891"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="25.7852" x="379.0967" y="419.7842">JVM</text></g><g class="participant participant-head" data-participant="OS"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="33.9063" x="541.7188" y="87.2969"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="19.9063" x="548.7188" y="107.292">OS</text></g><g class="participant participant-tail" data-participant="OS"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="33.9063" x="541.7188" y="399.7891"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="19.9063" x="548.7188" y="419.7842">OS</text></g><g class="participant participant-head" data-participant="NET"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="171.8281" x="585.625" y="87.2969"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="157.8281" x="592.625" y="107.292">New Execution Thread</text></g><g class="participant participant-tail" data-participant="NET"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="171.8281" x="585.625" y="399.7891"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="157.8281" x="592.625" y="419.7842">New Execution Thread</text></g><g class="participant participant-head" data-participant="Runnable"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="80.3154" x="785.1338" y="87.2969"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="66.3154" x="792.1338" y="107.292">Runnable</text></g><g class="participant participant-tail" data-participant="Runnable"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="80.3154" x="785.1338" y="399.7891"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="66.3154" x="792.1338" y="419.7842">Runnable</text></g><g><title>Thread t</title><rect fill="#FFFFFF" height="116.5313" style="stroke:#181818;stroke-width:1;" width="10" x="226.5674" y="178.8594"/></g><g><title>Thread t</title><rect fill="#FFFFFF" height="29.1328" style="stroke:#181818;stroke-width:1;" width="10" x="226.5674" y="353.6563"/></g><g><title>New Execution Thread</title><rect fill="#FFFFFF" height="58.2656" style="stroke:#181818;stroke-width:1;" width="10" x="666.5391" y="324.5234"/></g><g class="message" data-participant-1="User" data-participant-2="T"><polygon fill="#181818" points="219.5674,145.7266,229.5674,149.7266,219.5674,153.7266,223.5674,149.7266" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="23.9551" x2="225.5674" y1="149.7266" y2="149.7266"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="144.7773" x="30.9551" y="144.6606">new Thread(runnable)</text></g><g class="message" data-participant-1="User" data-participant-2="T"><polygon fill="#181818" points="214.5674,174.8594,224.5674,178.8594,214.5674,182.8594,218.5674,178.8594" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="23.9551" x2="220.5674" y1="178.8594" y2="178.8594"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="49.6514" x="30.9551" y="173.7935">t.start()</text></g><g class="message" data-participant-1="T" data-participant-2="JVM"><polygon fill="#181818" points="379.9893,203.9922,389.9893,207.9922,379.9893,211.9922,383.9893,207.9922" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="236.5674" x2="385.9893" y1="207.9922" y2="207.9922"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="131.4219" x="243.5674" y="202.9263">Request new thread</text></g><g class="message" data-participant-1="JVM" data-participant-2="OS"><polygon fill="#181818" points="546.6719,233.125,556.6719,237.125,546.6719,241.125,550.6719,237.125" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="391.9893" x2="552.6719" y1="237.125" y2="237.125"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="135.3638" x="398.9893" y="232.0591">Create kernel thread</text></g><g class="message" data-participant-1="OS" data-participant-2="JVM"><polygon fill="#181818" points="402.9893,262.2578,392.9893,266.2578,402.9893,270.2578,398.9893,266.2578" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;stroke-dasharray:2.0,2.0;" x1="396.9893" x2="557.6719" y1="266.2578" y2="266.2578"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="142.6826" x="408.9893" y="261.1919">Kernel thread created</text></g><g class="message" data-participant-1="JVM" data-participant-2="NET"><polygon fill="#181818" points="659.5391,291.3906,669.5391,295.3906,659.5391,299.3906,663.5391,295.3906" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="391.9893" x2="665.5391" y1="295.3906" y2="295.3906"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="97.7158" x="398.9893" y="290.3247">Execute t.run()</text></g><g class="message" data-participant-1="NET" data-participant-2="Runnable"><polygon fill="#181818" points="813.2915,320.5234,823.2915,324.5234,813.2915,328.5234,817.2915,324.5234" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="676.5391" x2="819.2915" y1="324.5234" y2="324.5234"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="129.7524" x="683.5391" y="319.4575">run() logic executes</text></g><g class="message" data-participant-1="User" data-participant-2="T"><polygon fill="#181818" points="214.5674,349.6563,224.5674,353.6563,214.5674,357.6563,218.5674,353.6563" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="23.9551" x2="220.5674" y1="353.6563" y2="353.6563"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="183.6123" x="30.9551" y="348.5903">t.run() (Direct Call Example)</text></g><g class="message" data-participant-1="T" data-participant-2="Runnable"><polygon fill="#181818" points="813.2915,378.7891,823.2915,382.7891,813.2915,386.7891,817.2915,382.7891" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="231.5674" x2="819.2915" y1="382.7891" y2="382.7891"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="244.3086" x="238.5674" y="377.7231">run() logic executes in current thread</text></g><!--SRC=[XP4nKiCm44LxdsB7bLE40r3GX3Gmn3EsGY-K7T0WP2Ej4uxFbnoCHKFbqVwdtRUoM75CjNeBh4_KYmv2vqZTvEjA6na27IE7QaJT6ZjgBmiiDUb8gimUdfzo6TyoQFjSR_koVE0BxR_OJ687JtFd31xsgghIRDhUaQ9RyY3dl0cJz_h5yQO0v2Oc_MQJnErP2qDEfHGoo3l-d3XARYIvKPK2v6sFU8SAhhnpyEn-02JRfS7ZEYAJ-QK7V87Cgp1Su0YJ4wzS4WAokze3pn2vuTKQulbg_BLFJr0kEFFDlGriX7RQEKpK7sDwYhzB_pE6h2SpXS3u2zTb2zdL0HxV]--></g></svg></li>
+</ul>
+<h2 id="线程暂停与让步"><a href="#线程暂停与让步" class="headerlink" title="线程暂停与让步"></a>线程暂停与让步</h2><ul>
+<li><strong><code>static void sleep(long millis)</code> &#x2F; <code>static void sleep(long millis, int nanos)</code></strong><ul>
+<li><strong>作用</strong>: 使<strong>当前</strong>正在执行的线程暂停指定的毫秒&#x2F;纳秒数。</li>
+<li><strong>锁行为</strong>: <strong>不释放</strong>当前线程持有的任何监视器锁。</li>
+<li><strong>状态转换</strong>: <code>RUNNABLE</code> -&gt; <code>TIMED_WAITING</code> -&gt; (时间到&#x2F;被中断) -&gt; <code>RUNNABLE</code></li>
+<li><strong>中断</strong>: 如果在睡眠期间被中断，会抛出<code>InterruptedException</code>并清除中断状态。</li>
+</ul>
+</li>
+<li><strong><code>static void yield()</code></strong><ul>
+<li><strong>作用</strong>: 一个<strong>提示性</strong>的方法，建议线程调度器可以将 CPU 让给其他具有相同或更高优先级的线程。</li>
+<li><strong>锁行为</strong>: <strong>不释放</strong>锁。</li>
+<li><strong>行为保证</strong>: <strong>不保证</strong>调度器一定会采纳这个建议。线程可能立即再次被调度。</li>
+<li><strong>状态转换</strong>: 可能从<code>RUNNING</code>(OS) -&gt; <code>READY</code>(OS) (仍在 JVM 的<code>RUNNABLE</code>内)。</li>
+</ul>
+</li>
+</ul>
+<h2 id="线程等待与加入"><a href="#线程等待与加入" class="headerlink" title="线程等待与加入"></a>线程等待与加入</h2><ul>
+<li><strong><code>final void join()</code> &#x2F; <code>final void join(long millis)</code> &#x2F; <code>final void join(long millis, int nanos)</code></strong><ul>
+<li><strong>作用</strong>: 调用<code>t.join()</code>的线程（如主线程）会等待线程<code>t</code>执行完成（即<code>t</code>进入<code>TERMINATED</code>状态）或超时。</li>
+<li><strong>锁行为</strong>: 调用<code>join()</code>的线程在等待期间<strong>继续持有它自己的锁</strong>。<code>join()</code>本身不涉及锁的释放。</li>
+<li><strong>状态转换 (调用者)</strong>: <code>RUNNABLE</code> -&gt; <code>WAITING</code> &#x2F; <code>TIMED_WAITING</code> -&gt; (<code>t</code>结束后) -&gt; <code>RUNNABLE</code></li>
+<li><strong>中断</strong>: 如果调用<code>join()</code>的线程在等待期间被中断，<code>join()</code>方法会抛出<code>InterruptedException</code>。</li>
+</ul>
+</li>
+</ul>
+<h2 id="线程中断-Interruption"><a href="#线程中断-Interruption" class="headerlink" title="线程中断 (Interruption)"></a>线程中断 (Interruption)</h2><ul>
+<li><strong><code>void interrupt()</code> (实例方法)</strong><ul>
+<li><strong>作用</strong>: 设置目标线程的<strong>中断状态位</strong>为<code>true</code>。</li>
+<li><strong>对阻塞线程的影响</strong>: 如果目标线程正因<code>wait()</code>, <code>join()</code>, <code>sleep()</code>而阻塞，则这些方法会立即抛出<code>InterruptedException</code>，并且 JVM 会<strong>清除</strong>该线程的中断状态。</li>
+</ul>
+</li>
+<li><strong><code>boolean isInterrupted()</code> (实例方法)</strong><ul>
+<li><strong>作用</strong>: 检查<strong>指定线程</strong>的中断状态位，返回其当前值。</li>
+<li><strong>副作用</strong>: <strong>不改变</strong>中断状态位。</li>
+</ul>
+</li>
+<li><strong><code>static boolean interrupted()</code> (静态方法)</strong><ul>
+<li><strong>作用</strong>: 检查<strong>当前正在执行的线程</strong>的中断状态位，返回其当前值。</li>
+<li><strong>副作用</strong>: <strong>会清除</strong>当前线程的中断状态位（如果为<code>true</code>，则返回<code>true</code>并重置为<code>false</code>）。</li>
+</ul>
+</li>
+<li><strong>处理<code>InterruptedException</code></strong>:<ul>
+<li>捕获时，中断状态已被清除。</li>
+<li>最佳实践: 通常在<code>catch</code>块中调用<code>Thread.currentThread().interrupt()</code>来恢复中断状态，以便上层代码或循环能感知到中断。</li>
+<li>设计可中断任务: 在循环中定期检查<code>isInterrupted()</code>或<code>Thread.interrupted()</code>，并响应中断。</li>
+</ul>
+</li>
+</ul>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentStyleType="text/css" data-diagram-type="SEQUENCE" height="558px" preserveAspectRatio="none" style="width:744px;height:558px;background:#FFFFFF;" version="1.1" viewBox="0 0 744 558" width="744px" zoomAndPan="magnify"><defs/><g><rect fill="none" height="240.0625" style="stroke:#000000;stroke-width:1.5;" width="728.3057" x="10" y="266.0938"/><g><title>OtherThread</title><rect fill="#000000" fill-opacity="0.00000" height="486.8594" width="8" x="67.5054" y="36.2969"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="71" x2="71" y1="36.2969" y2="523.1563"/></g><g><title>TargetThread</title><rect fill="#000000" fill-opacity="0.00000" height="486.8594" width="8" x="205.9028" y="36.2969"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="209.335" x2="209.335" y1="36.2969" y2="523.1563"/></g><g><title>JVMInternals</title><rect fill="#000000" fill-opacity="0.00000" height="486.8594" width="8" x="673.665" y="36.2969"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="677.0244" x2="677.0244" y1="36.2969" y2="523.1563"/></g><g class="participant participant-head" data-participant="OtherThread"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="103.0107" x="20" y="5"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="89.0107" x="27" y="24.9951">OtherThread</text></g><g class="participant participant-tail" data-participant="OtherThread"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="103.0107" x="20" y="522.1563"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="89.0107" x="27" y="542.1514">OtherThread</text></g><g class="participant participant-head" data-participant="TargetThread"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="109.1357" x="155.335" y="5"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="95.1357" x="162.335" y="24.9951">TargetThread</text></g><g class="participant participant-tail" data-participant="TargetThread"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="109.1357" x="155.335" y="522.1563"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="95.1357" x="162.335" y="542.1514">TargetThread</text></g><g class="participant participant-head" data-participant="JVMInternals"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="101.2813" x="627.0244" y="5"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="87.2813" x="634.0244" y="24.9951">JVMInternals</text></g><g class="participant participant-tail" data-participant="JVMInternals"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="101.2813" x="627.0244" y="522.1563"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="87.2813" x="634.0244" y="542.1514">JVMInternals</text></g><g class="message" data-participant-1="OtherThread" data-participant-2="TargetThread"><line style="stroke:#181818;stroke-width:1;" x1="207.9028" x2="197.9028" y1="67.4297" y2="63.4297"/><line style="stroke:#181818;stroke-width:1;" x1="207.9028" x2="197.9028" y1="67.4297" y2="71.4297"/><line style="stroke:#181818;stroke-width:1;" x1="71.5054" x2="208.9028" y1="67.4297" y2="67.4297"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="114.3975" x="78.5054" y="62.3638">thread.interrupt()</text></g><g class="message" data-participant-1="JVMInternals" data-participant-2="TargetThread"><line style="stroke:#181818;stroke-width:1;" x1="210.9028" x2="220.9028" y1="96.5625" y2="92.5625"/><line style="stroke:#181818;stroke-width:1;" x1="210.9028" x2="220.9028" y1="96.5625" y2="100.5625"/><line style="stroke:#181818;stroke-width:1;" x1="209.9028" x2="676.665" y1="96.5625" y2="96.5625"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="174.9858" x="226.9028" y="91.4966">Set interrupt_status = true</text></g><g class="message" data-participant-1="TargetThread" data-participant-2="TargetThread"><line style="stroke:#181818;stroke-width:1;" x1="209.9028" x2="251.9028" y1="125.6953" y2="125.6953"/><line style="stroke:#181818;stroke-width:1;" x1="251.9028" x2="251.9028" y1="125.6953" y2="138.6953"/><line style="stroke:#181818;stroke-width:1;" x1="209.9028" x2="251.9028" y1="138.6953" y2="138.6953"/><line style="stroke:#181818;stroke-width:1;" x1="210.9028" x2="220.9028" y1="138.6953" y2="134.6953"/><line style="stroke:#181818;stroke-width:1;" x1="210.9028" x2="220.9028" y1="138.6953" y2="142.6953"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="256.4644" x="216.9028" y="120.6294">boolean status = thread.isInterrupted()</text></g><path d="M214,151.6953 L214,176.6953 L511,176.6953 L511,161.6953 L501,151.6953 L214,151.6953" fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><path d="M501,151.6953 L501,161.6953 L511,161.6953 L501,151.6953" fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="276.9927" x="220" y="168.7622">status=true, interrupt_status remains true</text><g class="message" data-participant-1="TargetThread" data-participant-2="TargetThread"><line style="stroke:#181818;stroke-width:1;" x1="209.9028" x2="251.9028" y1="202.9609" y2="202.9609"/><line style="stroke:#181818;stroke-width:1;" x1="251.9028" x2="251.9028" y1="202.9609" y2="215.9609"/><line style="stroke:#181818;stroke-width:1;" x1="209.9028" x2="251.9028" y1="215.9609" y2="215.9609"/><line style="stroke:#181818;stroke-width:1;" x1="210.9028" x2="220.9028" y1="215.9609" y2="211.9609"/><line style="stroke:#181818;stroke-width:1;" x1="210.9028" x2="220.9028" y1="215.9609" y2="219.9609"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="303.5195" x="216.9028" y="197.895">boolean status_cleared = Thread.interrupted()</text></g><path d="M214,228.9609 L214,253.9609 L577,253.9609 L577,238.9609 L567,228.9609 L214,228.9609" fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><path d="M567,228.9609 L567,238.9609 L577,238.9609 L567,228.9609" fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="342.2466" x="220" y="246.0278">status_cleared=true, interrupt_status becomes false</text><path d="M10,266.0938 L74.4429,266.0938 L74.4429,273.2266 L64.4429,283.2266 L10,283.2266 L10,266.0938" fill="#EEEEEE" style="stroke:#000000;stroke-width:1.5;"/><rect fill="none" height="240.0625" style="stroke:#000000;stroke-width:1.5;" width="728.3057" x="10" y="266.0938"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="19.4429" x="25" y="279.1606">alt</text><text fill="#000000" font-family="sans-serif" font-size="11" font-weight="bold" lengthAdjust="spacing" textLength="248.7783" x="89.4429" y="278.3042">[TargetThread is in sleep()/wait()/join()]</text><g class="message" data-participant-1="TargetThread" data-participant-2="JVMInternals"><line style="stroke:#181818;stroke-width:1;" x1="675.665" x2="665.665" y1="304.3594" y2="300.3594"/><line style="stroke:#181818;stroke-width:1;" x1="675.665" x2="665.665" y1="304.3594" y2="308.3594"/><line style="stroke:#181818;stroke-width:1;" x1="209.9028" x2="676.665" y1="304.3594" y2="304.3594"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="124.5474" x="216.9028" y="299.2935">sleep()/wait()/join()</text></g><g class="message" data-participant-1="OtherThread" data-participant-2="TargetThread"><line style="stroke:#181818;stroke-width:1;" x1="207.9028" x2="197.9028" y1="333.4922" y2="329.4922"/><line style="stroke:#181818;stroke-width:1;" x1="207.9028" x2="197.9028" y1="333.4922" y2="337.4922"/><line style="stroke:#181818;stroke-width:1;" x1="71.5054" x2="208.9028" y1="333.4922" y2="333.4922"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="114.3975" x="78.5054" y="328.4263">thread.interrupt()</text></g><g class="message" data-participant-1="JVMInternals" data-participant-2="TargetThread"><line style="stroke:#181818;stroke-width:1;" x1="210.9028" x2="220.9028" y1="362.625" y2="358.625"/><line style="stroke:#181818;stroke-width:1;" x1="210.9028" x2="220.9028" y1="362.625" y2="366.625"/><line style="stroke:#181818;stroke-width:1;" x1="209.9028" x2="676.665" y1="362.625" y2="362.625"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="272.105" x="226.9028" y="357.5591">Set interrupt_status = true (momentarily)</text></g><g class="message" data-participant-1="JVMInternals" data-participant-2="TargetThread"><line style="stroke:#181818;stroke-width:1;" x1="210.9028" x2="220.9028" y1="391.7578" y2="387.7578"/><line style="stroke:#181818;stroke-width:1;" x1="210.9028" x2="220.9028" y1="391.7578" y2="395.7578"/><line style="stroke:#181818;stroke-width:1;" x1="209.9028" x2="676.665" y1="391.7578" y2="391.7578"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="191.8833" x="226.9028" y="386.6919">Clear interrupt_status = false</text></g><g class="message" data-participant-1="TargetThread" data-participant-2="JVMInternals"><line style="stroke:#181818;stroke-width:1;" x1="675.665" x2="665.665" y1="420.8906" y2="416.8906"/><line style="stroke:#181818;stroke-width:1;" x1="675.665" x2="665.665" y1="420.8906" y2="424.8906"/><line style="stroke:#181818;stroke-width:1;stroke-dasharray:2.0,2.0;" x1="209.9028" x2="676.665" y1="420.8906" y2="420.8906"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="186.0752" x="216.9028" y="415.8247">throws InterruptedException</text></g><g class="message" data-participant-1="TargetThread" data-participant-2="TargetThread"><line style="stroke:#181818;stroke-width:1;" x1="209.9028" x2="251.9028" y1="450.0234" y2="450.0234"/><line style="stroke:#181818;stroke-width:1;" x1="251.9028" x2="251.9028" y1="450.0234" y2="463.0234"/><line style="stroke:#181818;stroke-width:1;" x1="209.9028" x2="251.9028" y1="463.0234" y2="463.0234"/><line style="stroke:#181818;stroke-width:1;" x1="210.9028" x2="220.9028" y1="463.0234" y2="459.0234"/><line style="stroke:#181818;stroke-width:1;" x1="210.9028" x2="220.9028" y1="463.0234" y2="467.0234"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="453.7622" x="216.9028" y="444.9575">catch(InterruptedException e) { Thread.currentThread().interrupt(); }</text></g><path d="M214,476.0234 L214,501.0234 L472,501.0234 L472,486.0234 L462,476.0234 L214,476.0234" fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><path d="M462,476.0234 L462,486.0234 L472,486.0234 L462,476.0234" fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="237.5674" x="220" y="493.0903">interrupt_status becomes true again</text><!--SRC=[lL8zJyCm4DtzAsvC9A1xKRiWXY8X1YBMwkfS6wF4ZiuN5OJuxpWj0QT92YnCaUDxxzw7QsGnsjHe1Hwa8CuA9inL7VtFa7Sa8nTtJ_ShAyGMIwzK1BzSBcFG7EJmlJBjD3Ur9AcAmOFvHnBu6bvxGMayB42u8QNYqG5ourn9QE4RyxdQhpe-oiDwwuI0pQuGS5leSnonYtRRnL06KuN6-h-BMUjmOCg3gEmaZrzAwXYcf6r8kueyR4EcGHkM_VB0-801NnBLIJhRemb5p9wTiM7xYP6udla4v9yQXwGAhgmWc_Br1vgRDg0necCaFPC3bq6pstk87ihjYwPQZBFdUzOekaZ6S40fl7LrwuOv-3YUaZGEvnhUp_O_MVKX8Do55waKsVm3]--></g></svg>
+
+<h2 id="线程间协作-Object类的方法-必须在synchronized块中由锁对象调用"><a href="#线程间协作-Object类的方法-必须在synchronized块中由锁对象调用" class="headerlink" title="线程间协作 (Object类的方法 - 必须在synchronized块中由锁对象调用)"></a>线程间协作 (<code>Object</code>类的方法 - 必须在<code>synchronized</code>块中由锁对象调用)</h2><ul>
+<li><p><strong><code>final void wait()</code> &#x2F; <code>final void wait(long timeout)</code> &#x2F; <code>final void wait(long timeout, int nanos)</code></strong></p>
+<ul>
+<li><strong>作用</strong>: 当前线程（必须持有该对象的锁）<strong>释放该对象的锁</strong>，并进入该对象的条件队列 (WaitSet) 中等待。</li>
+<li><strong>状态转换</strong>: <code>RUNNABLE</code> -&gt; <code>WAITING</code> &#x2F; <code>TIMED_WAITING</code> -&gt; (被唤醒&#x2F;超时&#x2F;中断) -&gt; 尝试重获锁 -&gt; <code>BLOCKED</code> (若锁被占) -&gt; <code>RUNNABLE</code> (若获锁)</li>
+<li><strong>中断</strong>: 如果在等待期间被中断，会抛出<code>InterruptedException</code>并清除中断状态。</li>
+<li><strong>虚假唤醒</strong>: 必须在<code>while(condition)</code>循环中调用<code>wait()</code>。</li>
+</ul>
+</li>
+<li><p><strong><code>final void notify()</code></strong></p>
+<ul>
+<li><strong>作用</strong>: 从该对象的条件队列中<strong>选择一个</strong>正在等待的线程并唤醒它。</li>
+<li><strong>锁行为</strong>: 调用<code>notify()</code>的线程在执行完<code>notify()</code>后，并<strong>不会立即释放它持有的锁</strong>。锁在<code>synchronized</code>块结束时释放。</li>
+<li><strong>唤醒的线程</strong>: 进入<code>BLOCKED</code>状态，等待获取锁。</li>
+</ul>
+</li>
+<li><p><strong><code>final void notifyAll()</code></strong></p>
+<ul>
+<li><strong>作用</strong>: 唤醒该对象条件队列中<strong>所有</strong>正在等待的线程。</li>
+<li><strong>锁行为</strong>: 同<code>notify()</code>。</li>
+<li><strong>唤醒的线程</strong>: 全部进入<code>BLOCKED</code>状态，竞争锁。</li>
+</ul>
+</li>
+</ul>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentStyleType="text/css" data-diagram-type="SEQUENCE" height="619px" preserveAspectRatio="none" style="width:616px;height:619px;background:#FFFFFF;" version="1.1" viewBox="0 0 616 619" width="616px" zoomAndPan="magnify"><title>Object wait()/notify() Interaction</title><defs/><g><text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" lengthAdjust="spacing" textLength="258.918" x="177.1724" y="27.9951">Object wait()/notify() Interaction</text><g><title>LockObject</title><rect fill="#FFFFFF" height="93.3984" style="stroke:#181818;stroke-width:1;" width="10" x="348.5884" y="135.7266"/></g><g><title>LockObject</title><rect fill="#FF0000" height="128.5313" style="stroke:#181818;stroke-width:1;" width="10" x="348.5884" y="258.2578"/></g><g><title>LockObject</title><rect fill="#00FF00" height="34.1328" style="stroke:#181818;stroke-width:1;" width="10" x="348.5884" y="489.1875"/></g><g><title>ThreadA</title><rect fill="#000000" fill-opacity="0.00000" height="436.7266" width="8" x="37.4185" y="104.5938"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="41" x2="41" y1="104.5938" y2="541.3203"/></g><g><title>ThreadB</title><rect fill="#000000" fill-opacity="0.00000" height="436.7266" width="8" x="120.269" y="104.5938"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="123.8369" x2="123.8369" y1="104.5938" y2="541.3203"/></g><g><title>LockObject</title><rect fill="#000000" fill-opacity="0.00000" height="436.7266" width="8" x="349.5884" y="104.5938"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="352.7056" x2="352.7056" y1="104.5938" y2="541.3203"/></g><g><title>LockObject.WaitSet</title><rect fill="#000000" fill-opacity="0.00000" height="436.7266" width="8" x="526.7598" y="104.5938"/><line style="stroke:#181818;stroke-width:0.5;stroke-dasharray:5.0,5.0;" x1="530.2568" x2="530.2568" y1="104.5938" y2="541.3203"/></g><g class="participant participant-head" data-participant="TA"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="72.8369" x="5" y="73.2969"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="58.8369" x="12" y="93.292">ThreadA</text></g><g class="participant participant-tail" data-participant="TA"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="72.8369" x="5" y="540.3203"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="58.8369" x="12" y="560.3154">ThreadA</text></g><g class="participant participant-head" data-participant="TB"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="72.8643" x="87.8369" y="73.2969"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="58.8643" x="94.8369" y="93.292">ThreadB</text></g><g class="participant participant-tail" data-participant="TB"><rect fill="#E2E2F0" height="30.2969" rx="2.5" ry="2.5" style="stroke:#181818;stroke-width:0.5;" width="72.8643" x="87.8369" y="540.3203"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="58.8643" x="94.8369" y="560.3154">ThreadB</text></g><g class="participant participant-head" data-participant="Lock"><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="77.7656" x="311.7056" y="101.292">LockObject</text><path d="M335.5884,52.2969 C335.5884,42.2969 353.5884,42.2969 353.5884,42.2969 C353.5884,42.2969 371.5884,42.2969 371.5884,52.2969 L371.5884,78.2969 C371.5884,88.2969 353.5884,88.2969 353.5884,88.2969 C353.5884,88.2969 335.5884,88.2969 335.5884,78.2969 L335.5884,52.2969" fill="#E2E2F0" style="stroke:#181818;stroke-width:1.5;"/><path d="M335.5884,52.2969 C335.5884,62.2969 353.5884,62.2969 353.5884,62.2969 C353.5884,62.2969 371.5884,62.2969 371.5884,52.2969" fill="none" style="stroke:#181818;stroke-width:1.5;"/></g><g class="participant participant-tail" data-participant="Lock"><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="77.7656" x="311.7056" y="553.3154">LockObject</text><path d="M335.5884,566.6172 C335.5884,556.6172 353.5884,556.6172 353.5884,556.6172 C353.5884,556.6172 371.5884,556.6172 371.5884,566.6172 L371.5884,592.6172 C371.5884,602.6172 353.5884,602.6172 353.5884,602.6172 C353.5884,602.6172 335.5884,602.6172 335.5884,592.6172 L335.5884,566.6172" fill="#E2E2F0" style="stroke:#181818;stroke-width:1.5;"/><path d="M335.5884,566.6172 C335.5884,576.6172 353.5884,576.6172 353.5884,576.6172 C353.5884,576.6172 371.5884,576.6172 371.5884,566.6172" fill="none" style="stroke:#181818;stroke-width:1.5;"/></g><g class="participant participant-head" data-participant="WaitSet"><path d="M457.2568,78.2969 L604.2627,78.2969 C609.2627,78.2969 609.2627,91.4453 609.2627,91.4453 C609.2627,91.4453 609.2627,104.5938 604.2627,104.5938 L457.2568,104.5938 C452.2568,104.5938 452.2568,91.4453 452.2568,91.4453 C452.2568,91.4453 452.2568,78.2969 457.2568,78.2969" fill="#E2E2F0" style="stroke:#181818;stroke-width:0.5;"/><path d="M604.2627,78.2969 C599.2627,78.2969 599.2627,91.4453 599.2627,91.4453 C599.2627,104.5938 604.2627,104.5938 604.2627,104.5938" fill="none" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="137.0059" x="457.2568" y="96.292">LockObject.WaitSet</text></g><g class="participant participant-tail" data-participant="WaitSet"><path d="M457.2568,540.3203 L604.2627,540.3203 C609.2627,540.3203 609.2627,553.4688 609.2627,553.4688 C609.2627,553.4688 609.2627,566.6172 604.2627,566.6172 L457.2568,566.6172 C452.2568,566.6172 452.2568,553.4688 452.2568,553.4688 C452.2568,553.4688 452.2568,540.3203 457.2568,540.3203" fill="#E2E2F0" style="stroke:#181818;stroke-width:0.5;"/><path d="M604.2627,540.3203 C599.2627,540.3203 599.2627,553.4688 599.2627,553.4688 C599.2627,566.6172 604.2627,566.6172 604.2627,566.6172" fill="none" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="137.0059" x="457.2568" y="558.3154">LockObject.WaitSet</text></g><g><title>LockObject</title><rect fill="#FFFFFF" height="93.3984" style="stroke:#181818;stroke-width:1;" width="10" x="348.5884" y="135.7266"/></g><g><title>LockObject</title><rect fill="#FF0000" height="128.5313" style="stroke:#181818;stroke-width:1;" width="10" x="348.5884" y="258.2578"/></g><g><title>LockObject</title><rect fill="#00FF00" height="34.1328" style="stroke:#181818;stroke-width:1;" width="10" x="348.5884" y="489.1875"/></g><g class="message" data-participant-1="TA" data-participant-2="Lock"><polygon fill="#181818" points="336.5884,131.7266,346.5884,135.7266,336.5884,139.7266,340.5884,135.7266" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="41.4185" x2="342.5884" y1="135.7266" y2="135.7266"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="126.3311" x="48.4185" y="130.6606">synchronized(Lock)</text></g><g class="message" data-participant-1="TA" data-participant-2="Lock"><polygon fill="#181818" points="336.5884,160.8594,346.5884,164.8594,336.5884,168.8594,340.5884,164.8594" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="41.4185" x2="342.5884" y1="164.8594" y2="164.8594"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="214.3286" x="48.4185" y="159.7935">while(!condition) { Lock.wait(); }</text></g><path d="M46,177.8594 L46,202.8594 L263,202.8594 L263,187.8594 L253,177.8594 L46,177.8594" fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><path d="M253,177.8594 L253,187.8594 L263,187.8594 L253,177.8594" fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="196.8789" x="52" y="194.9263">Releases Lock, enters WaitSet</text><g class="message" data-participant-1="TA" data-participant-2="WaitSet"><line style="stroke:#181818;stroke-width:1;" x1="528.7598" x2="518.7598" y1="229.125" y2="225.125"/><line style="stroke:#181818;stroke-width:1;" x1="528.7598" x2="518.7598" y1="229.125" y2="233.125"/><line style="stroke:#181818;stroke-width:1;stroke-dasharray:2.0,2.0;" x1="41.4185" x2="529.7598" y1="229.125" y2="229.125"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="60.8867" x="48.4185" y="224.0591">(blocked)</text></g><g class="message" data-participant-1="TB" data-participant-2="Lock"><polygon fill="#181818" points="336.5884,254.2578,346.5884,258.2578,336.5884,262.2578,340.5884,258.2578" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="124.269" x2="342.5884" y1="258.2578" y2="258.2578"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="126.3311" x="131.269" y="253.1919">synchronized(Lock)</text></g><g class="message" data-participant-1="TB" data-participant-2="Lock"><polygon fill="#181818" points="336.5884,283.3906,346.5884,287.3906,336.5884,291.3906,340.5884,287.3906" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="124.269" x2="342.5884" y1="287.3906" y2="287.3906"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="124.9727" x="131.269" y="282.3247">// change condition</text></g><g class="message" data-participant-1="TB" data-participant-2="Lock"><polygon fill="#181818" points="336.5884,312.5234,346.5884,316.5234,336.5884,320.5234,340.5884,316.5234" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="124.269" x2="342.5884" y1="316.5234" y2="316.5234"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="200.3193" x="131.269" y="311.4575">Lock.notify() or Lock.notifyAll()</text></g><path d="M129,329.5234 L129,354.5234 L334,354.5234 L334,339.5234 L324,329.5234 L129,329.5234" fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><path d="M324,329.5234 L324,339.5234 L334,339.5234 L324,329.5234" fill="#FEFFDD" style="stroke:#181818;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="184.2788" x="135" y="346.5903">Signals one/all from WaitSet</text><g class="message" data-participant-1="Lock" data-participant-2="Lock"><line style="stroke:#181818;stroke-width:1;" x1="358.5884" x2="400.5884" y1="385.7891" y2="385.7891"/><line style="stroke:#181818;stroke-width:1;" x1="400.5884" x2="400.5884" y1="385.7891" y2="398.7891"/><line style="stroke:#181818;stroke-width:1;" x1="353.5884" x2="400.5884" y1="398.7891" y2="398.7891"/><polygon fill="#181818" points="363.5884,394.7891,353.5884,398.7891,363.5884,402.7891,359.5884,398.7891" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="143.1714" x="365.5884" y="380.7231">TB releases Lock here</text></g><g class="message" data-participant-1="WaitSet" data-participant-2="TA"><line style="stroke:#181818;stroke-width:1;" x1="42.4185" x2="52.4185" y1="422.9219" y2="418.9219"/><line style="stroke:#181818;stroke-width:1;" x1="42.4185" x2="52.4185" y1="422.9219" y2="426.9219"/><line style="stroke:#181818;stroke-width:1;stroke-dasharray:2.0,2.0;" x1="41.4185" x2="529.7598" y1="422.9219" y2="422.9219"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="76.7241" x="58.4185" y="417.856">(awakened)</text></g><g class="message" data-participant-1="TA" data-participant-2="Lock"><polygon fill="#181818" points="341.5884,448.0547,351.5884,452.0547,341.5884,456.0547,345.5884,452.0547" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="41.4185" x2="347.5884" y1="452.0547" y2="452.0547"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="181.7842" x="48.4185" y="446.9888">Attempts to re-acquire Lock</text></g><g class="message" data-participant-1="Lock" data-participant-2="Lock"><line style="stroke:#181818;stroke-width:1;" x1="353.5884" x2="400.5884" y1="476.1875" y2="476.1875"/><line style="stroke:#181818;stroke-width:1;" x1="400.5884" x2="400.5884" y1="476.1875" y2="489.1875"/><line style="stroke:#181818;stroke-width:1;" x1="359.5884" x2="400.5884" y1="489.1875" y2="489.1875"/><polygon fill="#181818" points="369.5884,485.1875,359.5884,489.1875,369.5884,493.1875,365.5884,489.1875" style="stroke:#181818;stroke-width:1;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="128.3369" x="365.5884" y="471.1216">TA re-acquires Lock</text></g><g class="message" data-participant-1="TA" data-participant-2="Lock"><polygon fill="#181818" points="341.5884,519.3203,351.5884,523.3203,341.5884,527.3203,345.5884,523.3203" style="stroke:#181818;stroke-width:1;"/><line style="stroke:#181818;stroke-width:1;" x1="41.4185" x2="347.5884" y1="523.3203" y2="523.3203"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="139.9976" x="48.4185" y="518.2544">// re-checks condition</text></g><!--SRC=[bLBBRi8m4Bpp5TlqaaY5SAOIKd90gbIfKa7gUN4Muc9iS9OYMlNVQpk5FA27vfJipdWU3ajM1D7Byfq4mn4bnqcg3SlLAKxWIJDP52oDZWRWdXrQbaBkK3D4Yz8I5ba4MC4Y-skVr_iyx0jaN6Bb59-DsDIgOUy_0s9_e4DdFNfpfkPKmtxV1m6wo60u3KoOG7NIehH6oqygOZzB0iQR_q2cHg33EfPIKNmdZ2waJvd0LrYDwYOUuJjmN244LgvB1hFo9qpWbHIv8BNp1o3VLEFlB3ISJiypnucNoe6fgAqLr3LNa_9_PeBxsMpidcjsce8eKQy9Bl6kGI7ivRwDRGyofUBaLlxS4UTohL5LO3Ibg1IihDbsuWU1HiYHRBioACdIpHxyxDnPA33q7UCHDwHzUJTkFsEcxOuhOEDaXYZs1sbRv_NCU783Q_rzlMh7Or_kjPohrj55IM9JzThjfVa1]--></g></svg>
+
+<h2 id="其他辅助方法-了解即可"><a href="#其他辅助方法-了解即可" class="headerlink" title="其他辅助方法 (了解即可)"></a>其他辅助方法 (了解即可)</h2><ul>
+<li><code>long getId()</code>: 获取线程的唯一 ID。</li>
+<li><code>String getName()</code> &#x2F; <code>void setName(String name)</code>: 获取&#x2F;设置线程名称。</li>
+<li><code>int getPriority()</code> &#x2F; <code>void setPriority(int newPriority)</code>: 获取&#x2F;设置线程优先级 (1-10, 依赖 OS, 不建议过度依赖)。</li>
+<li><code>boolean isAlive()</code>: 线程是否已启动且尚未终止。</li>
+<li><code>boolean isDaemon()</code> &#x2F; <code>void setDaemon(boolean on)</code>: 是否为守护线程。守护线程不阻止 JVM 退出。必须在<code>start()</code>前设置。</li>
+<li><code>static Thread currentThread()</code>: 获取当前正在执行此代码的线程对象。</li>
+<li><code>Thread.State getState()</code>: 获取线程当前状态 (JVM 层面)。</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/JAVA/" rel="tag"># JAVA</a>
+              <a href="/tags/%E7%BA%BF%E7%A8%8B/" rel="tag"># 线程</a>
+              <a href="/tags/%E5%BA%95%E5%B1%82/" rel="tag"># 底层</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2025/05/15/Java-%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B-%E7%B3%BB%E5%88%97%E5%AF%BC%E8%AF%BB/" rel="prev" title="Java 并发编程深度解析 - 系列导读">
+      <i class="fa fa-chevron-left"></i> Java 并发编程深度解析 - 系列导读
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2025/05/19/Java-%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B-JMM/" rel="next" title="Java 内存模型(JMM)">
+      Java 内存模型(JMM) <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Java-%E7%BA%BF%E7%A8%8B%E4%B8%8E%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%E7%BA%BF%E7%A8%8B"><span class="nav-number">1.</span> <span class="nav-text">Java 线程与操作系统线程</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%99%E5%9C%A8%E5%89%8D%E9%9D%A2"><span class="nav-number">1.1.</span> <span class="nav-text">写在前面</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3%E7%BA%BF%E7%A8%8B%EF%BC%9F"><span class="nav-number">1.2.</span> <span class="nav-text">为什么要深入理解线程？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%87%87%E7%94%A8%E4%B8%80%E5%AF%B9%E4%B8%80%E6%A8%A1%E5%9E%8B"><span class="nav-number">1.3.</span> <span class="nav-text">采用一对一模型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#JVM-%E7%9A%84%E7%BA%BF%E7%A8%8B%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F"><span class="nav-number">1.4.</span> <span class="nav-text">JVM 的线程生命周期</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%EF%BC%88LINUX%EF%BC%89%E7%9A%84%E7%BA%BF%E7%A8%8B%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F"><span class="nav-number">1.5.</span> <span class="nav-text">操作系统（LINUX）的线程生命周期</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Java-%E7%BA%BF%E7%A8%8B%E7%9A%84%E6%93%8D%E4%BD%9C"><span class="nav-number">2.</span> <span class="nav-text">Java 线程的操作</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%90%AF%E5%8A%A8%E4%B8%8E%E6%89%A7%E8%A1%8C"><span class="nav-number">2.1.</span> <span class="nav-text">启动与执行</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BA%BF%E7%A8%8B%E6%9A%82%E5%81%9C%E4%B8%8E%E8%AE%A9%E6%AD%A5"><span class="nav-number">2.2.</span> <span class="nav-text">线程暂停与让步</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BA%BF%E7%A8%8B%E7%AD%89%E5%BE%85%E4%B8%8E%E5%8A%A0%E5%85%A5"><span class="nav-number">2.3.</span> <span class="nav-text">线程等待与加入</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BA%BF%E7%A8%8B%E4%B8%AD%E6%96%AD-Interruption"><span class="nav-number">2.4.</span> <span class="nav-text">线程中断 (Interruption)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BA%BF%E7%A8%8B%E9%97%B4%E5%8D%8F%E4%BD%9C-Object%E7%B1%BB%E7%9A%84%E6%96%B9%E6%B3%95-%E5%BF%85%E9%A1%BB%E5%9C%A8synchronized%E5%9D%97%E4%B8%AD%E7%94%B1%E9%94%81%E5%AF%B9%E8%B1%A1%E8%B0%83%E7%94%A8"><span class="nav-number">2.5.</span> <span class="nav-text">线程间协作 (Object类的方法 - 必须在synchronized块中由锁对象调用)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%B6%E4%BB%96%E8%BE%85%E5%8A%A9%E6%96%B9%E6%B3%95-%E4%BA%86%E8%A7%A3%E5%8D%B3%E5%8F%AF"><span class="nav-number">2.6.</span> <span class="nav-text">其他辅助方法 (了解即可)</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">makotogu</p>
+  <div class="site-description" itemprop="description">Java|数据库|分布式|架构<br>分享我的学习之路</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">5</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/makotogu?tab" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;makotogu?tab" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:jianwangp@icloud.com" title="E-Mail → mailto:jianwangp@icloud.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">makotogu</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+<script>
+if (document.querySelectorAll('pre.mermaid').length) {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/mermaid@8/dist/mermaid.min.js', () => {
+    mermaid.initialize({
+      theme    : 'forest',
+      logLevel : 3,
+      flowchart: { curve     : 'linear' },
+      gantt    : { axisFormat: '%m/%d/%Y' },
+      sequence : { actorMargin: 50 }
+    });
+  }, window.mermaid);
+}
+</script>
+
+
+  
+
+  
+
+</body>
+</html>
