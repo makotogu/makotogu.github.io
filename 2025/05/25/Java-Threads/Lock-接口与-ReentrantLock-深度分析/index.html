@@ -20,30 +20,34 @@
     var CONFIG = {"hostname":"makotogu.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
   </script>
 
-  <meta name="description" content="Java|数据库|分布式|架构分享我的学习之路">
-<meta property="og:type" content="website">
-<meta property="og:title" content="makotogu的小博客">
-<meta property="og:url" content="https://makotogu.github.io/index.html">
+  <meta name="description" content="Lock 接口与 ReentrantLockLock 接口的设计理念与目标 java.util.concurrent.locks 包提供了一套比 synchronized 关键字更高级、更灵活的锁和同步机制。其核心是 Lock 接口和 AbstractQueuedSynchronizer (AQS) 框架。   核心方法: void lock(): 获取锁。如果锁不可用，则当前线程将被阻塞，直到获">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Lock 接口与 ReentrantLock 深度分析">
+<meta property="og:url" content="https://makotogu.github.io/2025/05/25/Java-Threads/Lock-%E6%8E%A5%E5%8F%A3%E4%B8%8E-ReentrantLock-%E6%B7%B1%E5%BA%A6%E5%88%86%E6%9E%90/index.html">
 <meta property="og:site_name" content="makotogu的小博客">
-<meta property="og:description" content="Java|数据库|分布式|架构分享我的学习之路">
+<meta property="og:description" content="Lock 接口与 ReentrantLockLock 接口的设计理念与目标 java.util.concurrent.locks 包提供了一套比 synchronized 关键字更高级、更灵活的锁和同步机制。其核心是 Lock 接口和 AbstractQueuedSynchronizer (AQS) 框架。   核心方法: void lock(): 获取锁。如果锁不可用，则当前线程将被阻塞，直到获">
 <meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-05-25T13:02:32.000Z">
+<meta property="article:modified_time" content="2025-05-25T14:55:34.784Z">
 <meta property="article:author" content="makotogu">
+<meta property="article:tag" content="JAVA">
+<meta property="article:tag" content="并发编程">
 <meta name="twitter:card" content="summary">
 
-<link rel="canonical" href="https://makotogu.github.io/">
+<link rel="canonical" href="https://makotogu.github.io/2025/05/25/Java-Threads/Lock-%E6%8E%A5%E5%8F%A3%E4%B8%8E-ReentrantLock-%E6%B7%B1%E5%BA%A6%E5%88%86%E6%9E%90/">
 
 
 <script id="page-configurations">
   // https://hexo.io/docs/variables.html
   CONFIG.page = {
     sidebar: "",
-    isHome : true,
-    isPost : false,
+    isHome : false,
+    isPost : true,
     lang   : 'zh-CN'
   };
 </script>
 
-  <title>makotogu的小博客</title>
+  <title>Lock 接口与 ReentrantLock 深度分析 | makotogu的小博客</title>
   
 
 
@@ -182,264 +186,10 @@
         <div class="content-wrap">
           
 
-          <div class="content index posts-expand">
+          <div class="content post posts-expand">
             
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://makotogu.github.io/2025/05/23/%E4%B8%AA%E4%BA%BA%E6%8A%80%E6%9C%AF%E5%9C%B0%E5%9B%BE/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="makotogu">
-      <meta itemprop="description" content="Java|数据库|分布式|架构<br>分享我的学习之路">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="makotogu的小博客">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-              <span class="post-sticky-flag" title="置顶">
-                <i class="fa fa-thumbtack"></i>
-              </span>
-            <a href="/2025/05/23/%E4%B8%AA%E4%BA%BA%E6%8A%80%E6%9C%AF%E5%9C%B0%E5%9B%BE/" class="post-title-link" itemprop="url">个人技术地图 & 学习记录</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2025-05-23 21:00:00" itemprop="dateCreated datePublished" datetime="2025-05-23T21:00:00+08:00">2025-05-23</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2025-05-26 23:05:34" itemprop="dateModified" datetime="2025-05-26T23:05:34+08:00">2025-05-26</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E4%B8%AA%E4%BA%BA%E7%AC%94%E8%AE%B0/" itemprop="url" rel="index"><span itemprop="name">个人笔记</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
 
     
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="个人技术地图-学习记录"><a href="#个人技术地图-学习记录" class="headerlink" title="个人技术地图 &amp; 学习记录"></a>个人技术地图 &amp; 学习记录</h1><h2 id="📝-使用说明"><a href="#📝-使用说明" class="headerlink" title="📝 使用说明"></a>📝 使用说明</h2><p>个人技术学习记录，用于跟踪技术掌握情况、学习进度和写作规划。定期更新，记录成长轨迹。</p>
-<h3 id="使用方式"><a href="#使用方式" class="headerlink" title="使用方式"></a>使用方式</h3><ul>
-<li><strong>掌握程度</strong>: 可以用 🔴🟡🟠🟢🔵 或其他方式标记</li>
-<li><strong>项目经验</strong>: 记录实际使用时长或项目数量</li>
-<li><strong>博客状态</strong>: ✅ 已发布 🚧 进行中 📅 已规划 💡 待规划</li>
-<li><strong>是否想深入</strong>: ✅ 想深入 ❌ 不深入</li>
-</ul>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2025/05/23/%E4%B8%AA%E4%BA%BA%E6%8A%80%E6%9C%AF%E5%9C%B0%E5%9B%BE/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://makotogu.github.io/2025/05/15/Java-Threads/Java-%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B-%E7%B3%BB%E5%88%97%E5%AF%BC%E8%AF%BB/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="makotogu">
-      <meta itemprop="description" content="Java|数据库|分布式|架构<br>分享我的学习之路">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="makotogu的小博客">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-              <span class="post-sticky-flag" title="置顶">
-                <i class="fa fa-thumbtack"></i>
-              </span>
-            <a href="/2025/05/15/Java-Threads/Java-%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B-%E7%B3%BB%E5%88%97%E5%AF%BC%E8%AF%BB/" class="post-title-link" itemprop="url">Java 并发编程深度解析 - 系列导读</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2025-05-15 10:00:00" itemprop="dateCreated datePublished" datetime="2025-05-15T10:00:00+08:00">2025-05-15</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2025-05-26 22:48:19" itemprop="dateModified" datetime="2025-05-26T22:48:19+08:00">2025-05-26</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E6%8A%80%E6%9C%AF%E5%88%86%E4%BA%AB/" itemprop="url" rel="index"><span itemprop="name">技术分享</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="Java-并发编程深度解析-系列导读"><a href="#Java-并发编程深度解析-系列导读" class="headerlink" title="Java 并发编程深度解析 - 系列导读"></a>Java 并发编程深度解析 - 系列导读</h1><h2 id="系列文章概述"><a href="#系列文章概述" class="headerlink" title="系列文章概述"></a>系列文章概述</h2><p>并发编程是 Java 开发中的核心技能，也是技术面试和实际项目中的重点难点。本系列文章将从底层原理到实战应用，全面深入地解析 Java 并发编程的各个方面。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2025/05/15/Java-Threads/Java-%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B-%E7%B3%BB%E5%88%97%E5%AF%BC%E8%AF%BB/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://makotogu.github.io/2025/05/25/algorithms/Leetcode-003-%E6%97%A0%E9%87%8D%E5%A4%8D%E5%AD%97%E7%AC%A6%E7%9A%84%E6%9C%80%E9%95%BF%E5%AD%90%E4%B8%B2/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="makotogu">
-      <meta itemprop="description" content="Java|数据库|分布式|架构<br>分享我的学习之路">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="makotogu的小博客">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2025/05/25/algorithms/Leetcode-003-%E6%97%A0%E9%87%8D%E5%A4%8D%E5%AD%97%E7%AC%A6%E7%9A%84%E6%9C%80%E9%95%BF%E5%AD%90%E4%B8%B2/" class="post-title-link" itemprop="url">LeetCode 003: 两数之和 (Two Sum)</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2025-05-25 23:00:00 / 修改时间：23:37:39" itemprop="dateCreated datePublished" datetime="2025-05-25T23:00:00+08:00">2025-05-25</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E7%AE%97%E6%B3%95%E9%A2%98%E8%A7%A3/" itemprop="url" rel="index"><span itemprop="name">算法题解</span></a>
-                </span>
-                  ，
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E7%AE%97%E6%B3%95%E9%A2%98%E8%A7%A3/LeetCode/" itemprop="url" rel="index"><span itemprop="name">LeetCode</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h2 id="题目描述"><a href="#题目描述" class="headerlink" title="题目描述"></a>题目描述</h2><p>给定一个字符串 s ，请你找出其中不含有重复字符的 最长 子串 的长度。</p>
-<p>示例 1:</p>
-<p>输入: s &#x3D; “abcabcbb”<br>输出: 3<br>解释: 因为无重复字符的最长子串是 “abc”，所以其长度为 3。<br>示例 2:</p>
-<p>输入: s &#x3D; “bbbbb”<br>输出: 1<br>解释: 因为无重复字符的最长子串是 “b”，所以其长度为 1。<br>示例 3:</p>
-<p>输入: s &#x3D; “pwwkew”<br>输出: 3<br>解释: 因为无重复字符的最长子串是 “wke”，所以其长度为 3。<br>请注意，你的答案必须是 子串 的长度，”pwke” 是一个子序列，不是子串。</p>
-<p>提示：</p>
-<p>0 &lt;&#x3D; s.length &lt;&#x3D; 5 * 104<br>s 由英文字母、数字、符号和空格组成</p>
-<p>…</p>
-<h2 id="解题思路"><a href="#解题思路" class="headerlink" title="解题思路"></a>解题思路</h2><p>…</p>
-<h2 id="代码实现"><a href="#代码实现" class="headerlink" title="代码实现"></a>代码实现</h2><p>…</p>
-
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
@@ -455,10 +205,9 @@
       <meta itemprop="name" content="makotogu的小博客">
     </span>
       <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2025/05/25/Java-Threads/Lock-%E6%8E%A5%E5%8F%A3%E4%B8%8E-ReentrantLock-%E6%B7%B1%E5%BA%A6%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">Lock 接口与 ReentrantLock 深度分析</a>
-        </h2>
+        <h1 class="post-title" itemprop="name headline">
+          Lock 接口与 ReentrantLock 深度分析
+        </h1>
 
         <div class="post-meta">
             <span class="post-meta-item">
@@ -491,7 +240,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <h1 id="Lock-接口与-ReentrantLock"><a href="#Lock-接口与-ReentrantLock" class="headerlink" title="Lock 接口与 ReentrantLock"></a><code>Lock</code> 接口与 <code>ReentrantLock</code></h1><h2 id="Lock-接口的设计理念与目标"><a href="#Lock-接口的设计理念与目标" class="headerlink" title="Lock 接口的设计理念与目标"></a><code>Lock</code> 接口的设计理念与目标</h2><blockquote>
+        <h1 id="Lock-接口与-ReentrantLock"><a href="#Lock-接口与-ReentrantLock" class="headerlink" title="Lock 接口与 ReentrantLock"></a><code>Lock</code> 接口与 <code>ReentrantLock</code></h1><h2 id="Lock-接口的设计理念与目标"><a href="#Lock-接口的设计理念与目标" class="headerlink" title="Lock 接口的设计理念与目标"></a><code>Lock</code> 接口的设计理念与目标</h2><blockquote>
 <p><code>java.util.concurrent.locks</code> 包提供了一套比 <code>synchronized</code> 关键字更高级、更灵活的锁和同步机制。其核心是 <code>Lock</code> 接口和 <code>AbstractQueuedSynchronizer</code> (AQS) 框架。</p>
 </blockquote>
 <ul>
@@ -796,420 +545,37 @@
 <p>理解公平与非公平的差异，不仅仅是知道它们的定义，更重要的是理解它们在 AQS 层面的实现机制（尤其是<code>tryAcquire</code>和<code>hasQueuedPredecessors()</code>的交互）以及由此带来的性能和行为上的影响。</p>
 <p>这次对<code>ReentrantLock</code>公平性和非公平性的详细解析，你觉得理解得怎么样？有没有觉得哪个机制的细节（比如<code>hasQueuedPredecessors</code>的具体判断逻辑，或者非公平锁插队成功的概率问题）还想再挖深一点？或者我们继续看<code>ReentrantReadWriteLock</code>？</p>
 
-      
     </div>
 
     
     
     
+
       <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
+          <div class="post-tags">
+              <a href="/tags/JAVA/" rel="tag"># JAVA</a>
+              <a href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/" rel="tag"># 并发编程</a>
+          </div>
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://makotogu.github.io/2025/05/23/Java-Threads/Java-%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B-%E9%9D%A2%E8%AF%95%E9%A2%98%E5%90%88%E9%9B%86-%E5%9F%BA%E7%A1%80%E7%AF%87/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="makotogu">
-      <meta itemprop="description" content="Java|数据库|分布式|架构<br>分享我的学习之路">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="makotogu的小博客">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2025/05/23/Java-Threads/Java-%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B-%E9%9D%A2%E8%AF%95%E9%A2%98%E5%90%88%E9%9B%86-%E5%9F%BA%E7%A1%80%E7%AF%87/" class="post-title-link" itemprop="url">Java 并发编程面试题合集 - 基础篇</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2025-05-23 20:00:00" itemprop="dateCreated datePublished" datetime="2025-05-23T20:00:00+08:00">2025-05-23</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2025-05-26 22:48:53" itemprop="dateModified" datetime="2025-05-26T22:48:53+08:00">2025-05-26</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E9%9D%A2%E8%AF%95%E6%8C%87%E5%8D%97/" itemprop="url" rel="index"><span itemprop="name">面试指南</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="Java-并发编程面试题合集-基础篇"><a href="#Java-并发编程面试题合集-基础篇" class="headerlink" title="Java 并发编程面试题合集 - 基础篇"></a>Java 并发编程面试题合集 - 基础篇</h1><h2 id="写在前面"><a href="#写在前面" class="headerlink" title="写在前面"></a>写在前面</h2><p>本文整理了<a href="/2025/05/15/Java-Threads/Java-%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B-%E7%B3%BB%E5%88%97%E5%AF%BC%E8%AF%BB/" title="Java 并发编程深度解析 - 系列导读">Java并发编程系列</a>基础篇（前 3 篇文章）的核心面试问题，涵盖了<strong>线程基础</strong>、<strong>Java 内存模型</strong>和<strong>volatile&#x2F;synchronized 关键字</strong>。</p>
-<p>这些问题在技术面试中出现频率极高，建议重点掌握。每个问题都提供了<strong>标准答案</strong>、<strong>扩展思考</strong>和<strong>实际应用场景</strong>。</p>
-<p><strong>适用对象</strong>：</p>
-<ul>
-<li>准备 Java 后端面试的同学</li>
-<li>希望系统梳理并发知识的开发者</li>
-<li>想要查漏补缺的有经验工程师</li>
-</ul>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2025/05/23/Java-Threads/Java-%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B-%E9%9D%A2%E8%AF%95%E9%A2%98%E5%90%88%E9%9B%86-%E5%9F%BA%E7%A1%80%E7%AF%87/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
         
-      
-    </div>
 
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://makotogu.github.io/2025/05/23/Java-Threads/volatile-%E4%B8%8E-synchronized/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="makotogu">
-      <meta itemprop="description" content="Java|数据库|分布式|架构<br>分享我的学习之路">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="makotogu的小博客">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2025/05/23/Java-Threads/volatile-%E4%B8%8E-synchronized/" class="post-title-link" itemprop="url">Volatile 与 Synchronized</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2025-05-23 15:58:43" itemprop="dateCreated datePublished" datetime="2025-05-23T15:58:43+08:00">2025-05-23</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2025-05-26 22:49:16" itemprop="dateModified" datetime="2025-05-26T22:49:16+08:00">2025-05-26</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E6%8A%80%E6%9C%AF%E5%88%86%E4%BA%AB/" itemprop="url" rel="index"><span itemprop="name">技术分享</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="Volatile-与-Synchronized-深度对比"><a href="#Volatile-与-Synchronized-深度对比" class="headerlink" title="Volatile 与 Synchronized 深度对比"></a><code>Volatile</code> 与 <code>Synchronized</code> 深度对比</h1><h2 id="写在前面"><a href="#写在前面" class="headerlink" title="写在前面"></a>写在前面</h2><p>在前面的文章中，我们深入学习了<a href="/2025/05/17/Java-Threads/Java%E7%9A%84%E7%BA%BF%E7%A8%8B/" title="Java的线程">Java线程机制</a>和<a href="/2025/05/19/Java-Threads/Java-%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B-JMM/" title="Java 内存模型(JMM)">Java内存模型</a>的理论基础。现在是时候将理论与实践结合，深入对比两个最重要的并发关键字：<code>volatile</code> 和 <code>synchronized</code>。</p>
-<p>在日常开发和技术面试中，这两个关键字的使用场景和区别是被问得最多的话题之一。很多开发者容易混淆它们的作用范围，甚至误以为 <code>volatile</code> 能够保证原子性。</p>
-<blockquote>
-<p><strong>实际案例</strong>：在优化一个配置热更新模块时，最初使用了 <code>volatile boolean configChanged</code> 来标识配置变更。但在高并发场景下发现，多个线程同时处理配置更新时出现了数据不一致问题。后来分析发现，<code>volatile</code> 只能保证可见性，而配置更新是一个复合操作，需要使用 <code>synchronized</code> 来保证原子性。这个经历让我深刻理解了两者的根本区别。</p>
-</blockquote>
-<ul>
-<li>🎯 <strong>精通底层原理</strong>：理解 volatile 和 synchronized 的实现机制</li>
-<li>🔍 <strong>准确识别场景</strong>：知道何时使用哪个关键字</li>
-<li>⚖️ <strong>权衡性能影响</strong>：理解两者的性能差异和优化策略</li>
-<li>💡 <strong>避免常见陷阱</strong>：掌握正确的使用方式，避免常见错误</li>
-</ul>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2025/05/23/Java-Threads/volatile-%E4%B8%8E-synchronized/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
         
-      
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2025/05/23/%E4%B8%AA%E4%BA%BA%E6%8A%80%E6%9C%AF%E5%9C%B0%E5%9B%BE/" rel="prev" title="个人技术地图 & 学习记录">
+      <i class="fa fa-chevron-left"></i> 个人技术地图 & 学习记录
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2025/05/25/algorithms/Leetcode-003-%E6%97%A0%E9%87%8D%E5%A4%8D%E5%AD%97%E7%AC%A6%E7%9A%84%E6%9C%80%E9%95%BF%E5%AD%90%E4%B8%B2/" rel="next" title="LeetCode 003: 两数之和 (Two Sum)">
+      LeetCode 003: 两数之和 (Two Sum) <i class="fa fa-chevron-right"></i>
+    </a></div>
     </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
       </footer>
+    
   </article>
   
   
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://makotogu.github.io/2025/05/19/Java-Threads/Java-%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B-JMM/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="makotogu">
-      <meta itemprop="description" content="Java|数据库|分布式|架构<br>分享我的学习之路">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="makotogu的小博客">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2025/05/19/Java-Threads/Java-%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B-JMM/" class="post-title-link" itemprop="url">Java 内存模型(JMM)</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2025-05-19 13:02:20" itemprop="dateCreated datePublished" datetime="2025-05-19T13:02:20+08:00">2025-05-19</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2025-05-26 22:44:27" itemprop="dateModified" datetime="2025-05-26T22:44:27+08:00">2025-05-26</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E6%8A%80%E6%9C%AF%E5%88%86%E4%BA%AB/" itemprop="url" rel="index"><span itemprop="name">技术分享</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="Java-内存模型-JMM-Java-Memory-Model"><a href="#Java-内存模型-JMM-Java-Memory-Model" class="headerlink" title="Java 内存模型 (JMM - Java Memory Model)"></a>Java 内存模型 (JMM - Java Memory Model)</h1><h2 id="写在前面"><a href="#写在前面" class="headerlink" title="写在前面"></a>写在前面</h2><p>在多年的 Java 开发实践中，我发现很多并发问题的根源都可以追溯到对 Java 内存模型的理解不足。无论是生产环境中偶现的数据不一致问题，还是性能优化中的锁竞争分析，JMM 都是绕不开的核心知识点。</p>
-<p>本文将从<strong>理论基础</strong>到<strong>实际应用</strong>，系统梳理 JMM 的核心概念，并结合具体代码示例分析常见的并发问题及其解决方案。希望能够帮助读者：</p>
-<ul>
-<li>🎯 <strong>深入理解</strong> JMM 的抽象模型和底层实现</li>
-<li>🔍 <strong>快速识别</strong> 并发编程中的可见性、原子性、有序性问题</li>
-<li>🛠️ <strong>掌握最佳实践</strong> 选择合适的同步机制</li>
-<li>📈 <strong>提升代码质量</strong> 编写线程安全且高性能的并发代码</li>
-</ul>
-<h2 id="为什么-JMM-如此重要？"><a href="#为什么-JMM-如此重要？" class="headerlink" title="为什么 JMM 如此重要？"></a>为什么 JMM 如此重要？</h2><blockquote>
-<p><strong>实际案例</strong>：曾在生产环境中遇到一个诡异的 bug：配置热更新功能在单机测试时工作正常，但在多核服务器上偶尔会失效。经过排查发现，是因为配置标志位没有使用 <code>volatile</code> 修饰，导致某些线程看不到配置的最新值。这个案例让我深刻意识到 JMM 知识的重要性。</p>
-</blockquote>
-<p>在现代多核 CPU 架构下，每个 CPU 核心都有自己的缓存层次（L1、L2、L3），Java 程序要想正确运行在这样的硬件环境中，就必须有一套明确的内存访问规范。JMM 正是这样一套规范，它：</p>
-<ul>
-<li><strong>屏蔽硬件差异</strong>：让 Java 程序在不同硬件平台上表现一致</li>
-<li><strong>定义可见性规则</strong>：明确什么时候一个线程的修改对另一个线程可见</li>
-<li><strong>规范执行顺序</strong>：在保证性能的前提下约束指令重排序的范围</li>
-</ul>
-<p>JMM 是 Java 虚拟机规范的一部分，它试图在不同的硬件和操作系统之间提供一个一致的内存访问视图，并定义了 Java 程序中各种变量（尤其是共享变量）的访问规则，以及在并发环境下，一个线程对共享变量的写入何时对另一个线程可见。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2025/05/19/Java-Threads/Java-%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B-JMM/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://makotogu.github.io/2025/05/17/Java-Threads/Java%E7%9A%84%E7%BA%BF%E7%A8%8B/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="makotogu">
-      <meta itemprop="description" content="Java|数据库|分布式|架构<br>分享我的学习之路">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="makotogu的小博客">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2025/05/17/Java-Threads/Java%E7%9A%84%E7%BA%BF%E7%A8%8B/" class="post-title-link" itemprop="url">Java的线程</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2025-05-17 11:18:31" itemprop="dateCreated datePublished" datetime="2025-05-17T11:18:31+08:00">2025-05-17</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2025-05-23 13:12:21" itemprop="dateModified" datetime="2025-05-23T13:12:21+08:00">2025-05-23</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/%E6%8A%80%E6%9C%AF%E5%88%86%E4%BA%AB/" itemprop="url" rel="index"><span itemprop="name">技术分享</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h1 id="Java-线程与操作系统线程"><a href="#Java-线程与操作系统线程" class="headerlink" title="Java 线程与操作系统线程"></a>Java 线程与操作系统线程</h1><h2 id="写在前面"><a href="#写在前面" class="headerlink" title="写在前面"></a>写在前面</h2><p>线程是现代 Java 应用程序的核心构建块，无论是 Web 服务的请求处理、批量任务的并行执行，还是实时数据处理，都离不开对线程的深入理解。在面试和实际开发中，线程相关的问题往往是考察候选人技术深度的重要指标。</p>
-<p>本文将深入探讨 Java 线程的底层实现机制，从<strong>JVM 线程模型</strong>到<strong>操作系统线程映射</strong>，从<strong>线程状态转换</strong>到<strong>实际编程应用</strong>。通过学习本文，您将能够：</p>
-<ul>
-<li>💡 <strong>理解底层原理</strong>：掌握 Java 线程与 OS 线程的映射关系</li>
-<li>🎯 <strong>精通状态管理</strong>：深入理解线程生命周期和状态转换</li>
-<li>🔧 <strong>熟练使用 API</strong>：掌握 Thread 类的核心方法和最佳实践</li>
-<li>🚀 <strong>解决实际问题</strong>：能够分析和解决常见的线程相关问题</li>
-</ul>
-<h2 id="为什么要深入理解线程？"><a href="#为什么要深入理解线程？" class="headerlink" title="为什么要深入理解线程？"></a>为什么要深入理解线程？</h2><blockquote>
-<p><strong>实际场景</strong>：在优化一个高并发 Web 应用时，发现系统在高负载下响应缓慢。通过分析线程 dump 发现，大量线程阻塞在某个同步方法上。理解线程状态转换和锁机制后，成功通过优化锁粒度和使用并发工具类解决了性能瓶颈。</p>
-</blockquote>
-<p>现代应用程序几乎都是多线程的，深入理解线程有助于：</p>
-<ul>
-<li><strong>性能调优</strong>：识别和解决线程竞争、死锁等问题</li>
-<li><strong>系统设计</strong>：合理设计并发架构，提高系统吞吐量</li>
-<li><strong>问题排查</strong>：快速定位生产环境中的并发问题</li>
-<li><strong>技术面试</strong>：线程是 Java 面试的高频考点</li>
-</ul>
-<h2 id="采用一对一模型"><a href="#采用一对一模型" class="headerlink" title="采用一对一模型"></a>采用一对一模型</h2><ul>
-<li><strong>关系</strong>: 主流 JVM（如 HotSpot）采用”一对一”线程模型：一个 Java 线程映射到一个操作系统内核线程。</li>
-<li><strong>特点</strong>:<ul>
-<li><strong>优点</strong>: 充分利用多核 CPU，操作系统级调度，阻塞不影响其他线程。</li>
-<li><strong>缺点</strong>: 创建&#x2F;销毁&#x2F;切换成本高（重量级），线程数量受限。</li>
-</ul>
-</li>
-</ul>
-<pre class="mermaid" style="text-align: center;">
-            graph LR
-            subgraph OS Kernel
-KThread1[Kernel Thread 1]
-KThread2[Kernel Thread 2]
-KThreadN[Kernel Thread N]
-end
-subgraph JVM Process
-JThread1[Java Thread 1] --- KThread1
-JThread2[Java Thread 2] --- KThread2
-JThreadN[Java Thread N] --- KThreadN
-end
-UserApp[User Application] -- Creates --> JThread1
-UserApp -- Creates --> JThread2
-UserApp -- Creates --> JThreadN
-          </pre>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2025/05/17/Java-Threads/Java%E7%9A%84%E7%BA%BF%E7%A8%8B/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-
   
 
 
@@ -1262,6 +628,7 @@ UserApp -- Creates --> JThreadN
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Lock-%E6%8E%A5%E5%8F%A3%E4%B8%8E-ReentrantLock"><span class="nav-number">1.</span> <span class="nav-text">Lock 接口与 ReentrantLock</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Lock-%E6%8E%A5%E5%8F%A3%E7%9A%84%E8%AE%BE%E8%AE%A1%E7%90%86%E5%BF%B5%E4%B8%8E%E7%9B%AE%E6%A0%87"><span class="nav-number">1.1.</span> <span class="nav-text">Lock 接口的设计理念与目标</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%B7%B1%E5%85%A5-ReentrantLock-%E5%8E%9F%E7%90%86%E4%B8%8E%E5%BA%94%E7%94%A8"><span class="nav-number">1.2.</span> <span class="nav-text">深入 ReentrantLock 原理与应用</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A0%B8%E5%BF%83%E7%89%B9%E6%80%A7%E5%86%8D%E5%BC%BA%E8%B0%83"><span class="nav-number">1.2.1.</span> <span class="nav-text">核心特性再强调</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%86%85%E9%83%A8%E7%BB%93%E6%9E%84%E4%B8%8E-AQS-%E7%9A%84%E5%85%B3%E8%81%94"><span class="nav-number">1.2.2.</span> <span class="nav-text">内部结构与 AQS 的关联</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Lock-%E6%8E%A5%E5%8F%A3%E6%8F%90%E4%BE%9B%E7%9A%84%E9%AB%98%E7%BA%A7%E5%8A%9F%E8%83%BD"><span class="nav-number">1.2.3.</span> <span class="nav-text">Lock 接口提供的高级功能</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8ReentrantLock%E7%9A%84%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9"><span class="nav-number">1.2.4.</span> <span class="nav-text">使用ReentrantLock的注意事项</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">1.2.5.</span> <span class="nav-text">总结</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ReentrantLock%EF%BC%9A%E5%85%AC%E5%B9%B3%E6%80%A7%E6%B7%B1%E5%85%A5%E8%A7%A3%E6%9E%90"><span class="nav-number">1.3.</span> <span class="nav-text">ReentrantLock：公平性深入解析</span></a></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
