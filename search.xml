@@ -3180,4 +3180,236 @@ UserApp -- Creates --> JThreadN
         <tag>个人总结</tag>
       </tags>
   </entry>
+  <entry>
+    <title>LeetCode 146: LRU 缓存 (LRU Cache)</title>
+    <url>/2025/05/25/algorithms/Leetcode-146-LRU%E7%BC%93%E5%AD%98/</url>
+    <content><![CDATA[<ul>
+<li><a href="https://leetcode.cn/problems/lru-cache/description/">题目地址</a></li>
+</ul>
+<h2 id="题目描述"><a href="#题目描述" class="headerlink" title="题目描述"></a>题目描述</h2><p>请你设计并实现一个满足 LRU (最近最少使用) 缓存 约束的数据结构。</p>
+<p>实现 <code>LRUCache</code> 类：</p>
+<ul>
+<li><code>LRUCache(int capacity)</code> 以 <strong>正整数</strong> 作为容量 <code>capacity</code> 初始化 LRU 缓存</li>
+<li><code>int get(int key)</code> 如果关键字 <code>key</code> 存在于缓存中，则返回关键字的值，否则返回 <code>-1</code>。</li>
+<li><code>void put(int key, int value)</code> 如果关键字 <code>key</code> 已经存在，则变更其数据值 <code>value</code> ；如果不存在，则向缓存中插入该组 <code>key-value</code> 。如果插入操作导致关键字数量超过 <code>capacity</code> ，则应该 <strong>逐出</strong> 最近最少使用的关键字。</li>
+</ul>
+<p>函数 <code>get</code> 和 <code>put</code> 必须以 <code>O(1)</code> 的平均时间复杂度运行。</p>
+<p><strong>示例：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">输入</span><br><span class="line">[&quot;LRUCache&quot;, &quot;put&quot;, &quot;put&quot;, &quot;get&quot;, &quot;put&quot;, &quot;get&quot;, &quot;put&quot;, &quot;get&quot;, &quot;get&quot;, &quot;get&quot;]</span><br><span class="line">[[2], [1, 1], [2, 2], [1], [3, 3], [2], [4, 4], [1], [3], [4]]</span><br><span class="line">输出</span><br><span class="line">[null, null, null, 1, null, -1, null, -1, 3, 4]</span><br><span class="line"></span><br><span class="line">解释</span><br><span class="line">LRUCache lRUCache = new LRUCache(2);</span><br><span class="line">lRUCache.put(1, 1); // 缓存是 &#123;1=1&#125;</span><br><span class="line">lRUCache.put(2, 2); // 缓存是 &#123;1=1, 2=2&#125;</span><br><span class="line">lRUCache.get(1);    // 返回 1</span><br><span class="line">lRUCache.put(3, 3); // 该操作会使得关键字 2 作废，缓存是 &#123;1=1, 3=3&#125;</span><br><span class="line">lRUCache.get(2);    // 返回 -1 (未找到)</span><br><span class="line">lRUCache.put(4, 4); // 该操作会使得关键字 1 作废，缓存是 &#123;4=4, 3=3&#125;</span><br><span class="line">lRUCache.get(1);    // 返回 -1 (未找到)</span><br><span class="line">lRUCache.get(3);    // 返回 3</span><br><span class="line">lRUCache.get(4);    // 返回 4</span><br></pre></td></tr></table></figure>
+
+<p><strong>提示：</strong></p>
+<ul>
+<li><code>1 &lt;= capacity &lt;= 3000</code></li>
+<li><code>0 &lt;= key &lt;= 10000</code></li>
+<li><code>0 &lt;= value &lt;= 10^5</code></li>
+<li>最多调用 <code>2 * 10^5</code> 次 <code>get</code> 和 <code>put</code></li>
+</ul>
+<span id="more"></span>
+
+<h2 id="解题思路"><a href="#解题思路" class="headerlink" title="解题思路"></a>解题思路</h2><p>分析题目，我想到的第一点是 FIFO 的队列结构，但是仔细一看呢感觉如果要把最近一次使用的找到并且移动队列的内容物可能效率非常的低下。<br>那么我觉得需要回到 cache 的本质，我以前有在工作中实现过简单的 jvm 缓存，就是一个 ConcurrentHashMap，所以我觉得对于这个题目也该是用 Map 存储。<br>然后该如何实现快速找到头尾，我记得 array list 是坐标查找最快，linkedList 好像是插入速度最快。<br>那我该怎么用链表实现头尾呢？我大概感觉是新的头插，满了把尾巴移走。如果 get map 有数呢就把它重新移动到头上。<br>那移走之后原先位置的那个元素怎么办呢，哦 remove 方法吧。大概明白了，开搞。</p>
+<hr>
+<p>居然速度只击败了 5%。。。看来要问问 ai 了</p>
+<blockquote>
+<p>你的 HashMap 保证了根据 key 查找 value 是快的。但是，维护访问顺序的 LinkedList<Integer> list 出了问题：<br>get(int key) 方法中：<br>list.remove(integerKey); 这一步是性能杀手。LinkedList 要删除一个特定值的元素，它不知道这个元素在哪里，所以它必须从头到尾遍历链表来找到这个 integerKey，然后才能删除它。这个操作的时间复杂度是 O(N)，N 是链表当前的长度（即缓存中的元素数量）。<br>list.addFirst(integerKey); 这是 O(1) 的。<br>put(int key, int value) 方法中：<br>if (this.cache.containsKey(integerKey)) { this.list.remove(integerKey); … } 同样，如果 key 已存在，这里的 list.remove(integerKey) 也是 O(N) 的。<br>淘汰机制中 this.list.removeLast(); 是 O(1) 的，这部分没问题。<br>this.list.addFirst(integerKey); 是 O(1) 的。<br>由于 get 和 put 操作中都可能涉及到 O(N) 的链表元素查找和删除，导致整体性能大幅下降。</p>
+</blockquote>
+<hr>
+<p>…</p>
+<h2 id="代码实现"><a href="#代码实现" class="headerlink" title="代码实现"></a>代码实现</h2><p>5 % 击败</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 第一版实现（性能较差，仅击败5%）</span></span><br><span class="line"><span class="comment"> * 使用 HashMap + LinkedList 的组合</span></span><br><span class="line"><span class="comment"> * 主要问题在于 LinkedList 的 remove 操作需要 O(n) 的时间复杂度</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">LRUCache</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="type">int</span> <span class="variable">cacheCapacity</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">private</span> Map&lt;Integer, Integer&gt; cache = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;&gt;();</span><br><span class="line">    <span class="keyword">private</span> List&lt;Integer&gt; list = <span class="keyword">new</span> <span class="title class_">LinkedList</span>();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">LRUCache</span><span class="params">(<span class="type">int</span> capacity)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.cacheCapacity = capacity;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="type">int</span> <span class="title function_">get</span><span class="params">(<span class="type">int</span> key)</span> &#123;</span><br><span class="line">        <span class="type">Integer</span> <span class="variable">integerKey</span> <span class="operator">=</span> Integer.valueOf(key);</span><br><span class="line">        <span class="keyword">if</span> (!<span class="built_in">this</span>.cache.containsKey(integerKey)) &#123;</span><br><span class="line">            <span class="keyword">return</span> -<span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        list.remove(integerKey);  <span class="comment">// O(n) 操作，性能瓶颈</span></span><br><span class="line">        list.addFirst(integerKey);</span><br><span class="line">        <span class="keyword">return</span> cache.get(integerKey);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">put</span><span class="params">(<span class="type">int</span> key, <span class="type">int</span> value)</span> &#123;</span><br><span class="line">        <span class="type">Integer</span> <span class="variable">integerKey</span> <span class="operator">=</span> Integer.valueOf(key);</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">this</span>.cache.containsKey(integerKey)) &#123;</span><br><span class="line">            <span class="built_in">this</span>.list.remove(integerKey);  <span class="comment">// O(n) 操作，性能瓶颈</span></span><br><span class="line">            <span class="built_in">this</span>.cache.remove(integerKey);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">this</span>.cache.size() &gt;= cacheCapacity)&#123;</span><br><span class="line">            <span class="type">Integer</span> <span class="variable">lastKey</span> <span class="operator">=</span> <span class="built_in">this</span>.list.getLast();</span><br><span class="line">            <span class="built_in">this</span>.list.removeLast();</span><br><span class="line">            <span class="built_in">this</span>.cache.remove(lastKey);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="built_in">this</span>.list.addFirst(integerKey);</span><br><span class="line">        <span class="built_in">this</span>.cache.put(integerKey, value);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 优化版本（性能提升至击败60%）</span></span><br><span class="line"><span class="comment"> * 使用 HashMap + 双向链表 的组合</span></span><br><span class="line"><span class="comment"> * 通过自定义双向链表实现 O(1) 的插入和删除操作</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">LRUCache</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="type">int</span> <span class="variable">cacheCapacity</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">private</span> Map&lt;Integer, Node&gt; cache = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 双向链表节点</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Node</span> &#123;</span><br><span class="line">        <span class="keyword">private</span> Integer key;</span><br><span class="line">        <span class="keyword">private</span> Integer value;</span><br><span class="line">        <span class="keyword">private</span> Node next;</span><br><span class="line">        <span class="keyword">private</span> Node prev;</span><br><span class="line">        <span class="keyword">public</span> <span class="title function_">Node</span><span class="params">()</span> &#123;&#125;;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 虚拟头尾节点，简化边界处理</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">Node</span> <span class="variable">head</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Node</span>();</span><br><span class="line">    <span class="keyword">private</span> <span class="type">Node</span> <span class="variable">tail</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Node</span>();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">LRUCache</span><span class="params">(<span class="type">int</span> capacity)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.cacheCapacity = capacity;</span><br><span class="line">        head.next = tail;</span><br><span class="line">        tail.prev = head;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="type">int</span> <span class="title function_">get</span><span class="params">(<span class="type">int</span> key)</span> &#123;</span><br><span class="line">        <span class="type">Integer</span> <span class="variable">integerKey</span> <span class="operator">=</span> Integer.valueOf(key);</span><br><span class="line">        <span class="keyword">if</span> (!<span class="built_in">this</span>.cache.containsKey(integerKey)) &#123;</span><br><span class="line">            <span class="keyword">return</span> -<span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="type">Node</span> <span class="variable">node</span> <span class="operator">=</span> <span class="built_in">this</span>.cache.get(integerKey);</span><br><span class="line">        <span class="built_in">this</span>.moveToHead(node);  <span class="comment">// O(1) 操作</span></span><br><span class="line">        <span class="keyword">return</span> node.value;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">put</span><span class="params">(<span class="type">int</span> key, <span class="type">int</span> value)</span> &#123;</span><br><span class="line">        <span class="type">Integer</span> <span class="variable">integerKey</span> <span class="operator">=</span> Integer.valueOf(key);</span><br><span class="line">        <span class="keyword">if</span>(<span class="built_in">this</span>.cache.containsKey(integerKey)) &#123;</span><br><span class="line">            <span class="type">Node</span> <span class="variable">node</span> <span class="operator">=</span> <span class="built_in">this</span>.cache.get(integerKey);</span><br><span class="line">            node.value = value;</span><br><span class="line">            <span class="built_in">this</span>.moveToHead(node);  <span class="comment">// O(1) 操作</span></span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="type">Node</span> <span class="variable">node</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Node</span>();</span><br><span class="line">            node.key = key;</span><br><span class="line">            node.value = value;</span><br><span class="line">            <span class="built_in">this</span>.cache.put(key, node);</span><br><span class="line">            <span class="built_in">this</span>.addToHead(node);  <span class="comment">// O(1) 操作</span></span><br><span class="line">            <span class="keyword">if</span> (<span class="built_in">this</span>.cache.size() &gt; <span class="built_in">this</span>.cacheCapacity) &#123;</span><br><span class="line">                <span class="type">Node</span> <span class="variable">tail</span> <span class="operator">=</span> <span class="built_in">this</span>.removeTail();  <span class="comment">// O(1) 操作</span></span><br><span class="line">                <span class="built_in">this</span>.cache.remove(tail.key);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 将节点添加到链表头部</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">addToHead</span><span class="params">(Node node)</span> &#123;</span><br><span class="line">        node.prev = <span class="built_in">this</span>.head;</span><br><span class="line">        node.next = <span class="built_in">this</span>.head.next;</span><br><span class="line">        <span class="built_in">this</span>.head.next.prev = node;</span><br><span class="line">        <span class="built_in">this</span>.head.next = node;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 将节点移动到链表头部</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">moveToHead</span><span class="params">(Node node)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.removeNode(node);</span><br><span class="line">        <span class="built_in">this</span>.addToHead(node);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 从链表中移除节点</span></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">void</span> <span class="title function_">removeNode</span><span class="params">(Node node)</span> &#123;</span><br><span class="line">        node.prev.next = node.next;</span><br><span class="line">        node.next.prev = node.prev;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 移除链表尾部节点</span></span><br><span class="line">    <span class="keyword">private</span> Node <span class="title function_">removeTail</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="type">Node</span> <span class="variable">node</span> <span class="operator">=</span> <span class="built_in">this</span>.tail.prev;</span><br><span class="line">        <span class="built_in">this</span>.removeNode(node);</span><br><span class="line">        <span class="keyword">return</span> node;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>…</p>
+<h2 id="算法复杂度分析"><a href="#算法复杂度分析" class="headerlink" title="算法复杂度分析"></a>算法复杂度分析</h2><h3 id="第一版实现（HashMap-LinkedList）"><a href="#第一版实现（HashMap-LinkedList）" class="headerlink" title="第一版实现（HashMap + LinkedList）"></a>第一版实现（HashMap + LinkedList）</h3><ul>
+<li><strong>时间复杂度：</strong><ul>
+<li><code>get(key)</code>: O(n) - 由于 LinkedList 的 remove 操作需要遍历链表</li>
+<li><code>put(key, value)</code>: O(n) - 同样因为 remove 操作</li>
+</ul>
+</li>
+<li><strong>空间复杂度：</strong> O(capacity) - 存储最多 capacity 个键值对</li>
+</ul>
+<h3 id="优化版实现（HashMap-双向链表）"><a href="#优化版实现（HashMap-双向链表）" class="headerlink" title="优化版实现（HashMap + 双向链表）"></a>优化版实现（HashMap + 双向链表）</h3><ul>
+<li><strong>时间复杂度：</strong><ul>
+<li><code>get(key)</code>: O(1) - HashMap 查找 + 双向链表节点移动都是常数时间</li>
+<li><code>put(key, value)</code>: O(1) - 所有操作都是常数时间</li>
+</ul>
+</li>
+<li><strong>空间复杂度：</strong> O(capacity) - 存储最多 capacity 个键值对和对应的链表节点</li>
+</ul>
+<h2 id="测试用例"><a href="#测试用例" class="headerlink" title="测试用例"></a>测试用例</h2><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">LRUCacheTest</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="comment">// 基本功能测试</span></span><br><span class="line">        <span class="type">LRUCache</span> <span class="variable">cache</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">LRUCache</span>(<span class="number">2</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 测试用例1：基本的put和get操作</span></span><br><span class="line">        cache.put(<span class="number">1</span>, <span class="number">1</span>);</span><br><span class="line">        cache.put(<span class="number">2</span>, <span class="number">2</span>);</span><br><span class="line">        <span class="keyword">assert</span> cache.get(<span class="number">1</span>) == <span class="number">1</span>; <span class="comment">// 返回 1</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">// 测试用例2：容量满时的淘汰机制</span></span><br><span class="line">        cache.put(<span class="number">3</span>, <span class="number">3</span>); <span class="comment">// 淘汰 key 2</span></span><br><span class="line">        <span class="keyword">assert</span> cache.get(<span class="number">2</span>) == -<span class="number">1</span>; <span class="comment">// 返回 -1 (未找到)</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">// 测试用例3：更新已存在的key</span></span><br><span class="line">        cache.put(<span class="number">4</span>, <span class="number">4</span>); <span class="comment">// 淘汰 key 1</span></span><br><span class="line">        <span class="keyword">assert</span> cache.get(<span class="number">1</span>) == -<span class="number">1</span>; <span class="comment">// 返回 -1 (未找到)</span></span><br><span class="line">        <span class="keyword">assert</span> cache.get(<span class="number">3</span>) == <span class="number">3</span>; <span class="comment">// 返回 3</span></span><br><span class="line">        <span class="keyword">assert</span> cache.get(<span class="number">4</span>) == <span class="number">4</span>; <span class="comment">// 返回 4</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">// 测试用例4：边界情况</span></span><br><span class="line">        <span class="type">LRUCache</span> <span class="variable">cache2</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">LRUCache</span>(<span class="number">1</span>);</span><br><span class="line">        cache2.put(<span class="number">1</span>, <span class="number">1</span>);</span><br><span class="line">        cache2.put(<span class="number">2</span>, <span class="number">2</span>); <span class="comment">// 淘汰 key 1</span></span><br><span class="line">        <span class="keyword">assert</span> cache2.get(<span class="number">1</span>) == -<span class="number">1</span>; <span class="comment">// 返回 -1</span></span><br><span class="line">        <span class="keyword">assert</span> cache2.get(<span class="number">2</span>) == <span class="number">2</span>; <span class="comment">// 返回 2</span></span><br><span class="line"></span><br><span class="line">        System.out.println(<span class="string">&quot;所有测试用例通过！&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="关键要点"><a href="#关键要点" class="headerlink" title="关键要点"></a>关键要点</h2><h3 id="1-核心思想"><a href="#1-核心思想" class="headerlink" title="1. 核心思想"></a>1. 核心思想</h3><ul>
+<li><strong>LRU (Least Recently Used)</strong> 缓存需要同时支持快速查找和维护访问顺序</li>
+<li>使用 <strong>HashMap + 双向链表</strong> 的组合是最优解决方案</li>
+</ul>
+<h3 id="2-数据结构选择"><a href="#2-数据结构选择" class="headerlink" title="2. 数据结构选择"></a>2. 数据结构选择</h3><ul>
+<li><strong>HashMap</strong>: 提供 O(1) 的查找、插入、删除操作</li>
+<li><strong>双向链表</strong>: 提供 O(1) 的节点移动、插入、删除操作</li>
+<li><strong>避免使用 LinkedList</strong>: 其 <code>remove(Object)</code> 方法是 O(n) 的</li>
+</ul>
+<h3 id="3-设计技巧"><a href="#3-设计技巧" class="headerlink" title="3. 设计技巧"></a>3. 设计技巧</h3><ul>
+<li><strong>虚拟头尾节点</strong>: 简化边界情况的处理，避免空指针判断</li>
+<li><strong>HashMap 存储节点引用</strong>: 直接存储链表节点，而不是值，便于快速定位和移动</li>
+</ul>
+<h3 id="4-操作流程"><a href="#4-操作流程" class="headerlink" title="4. 操作流程"></a>4. 操作流程</h3><ul>
+<li><strong>get 操作</strong>:<ol>
+<li>在 HashMap 中查找节点</li>
+<li>如果存在，将节点移动到链表头部</li>
+<li>返回节点值</li>
+</ol>
+</li>
+<li><strong>put 操作</strong>:<ol>
+<li>如果 key 已存在，更新值并移动到头部</li>
+<li>如果 key 不存在，创建新节点并添加到头部</li>
+<li>如果超出容量，删除尾部节点</li>
+</ol>
+</li>
+</ul>
+<h3 id="5-性能优化要点"><a href="#5-性能优化要点" class="headerlink" title="5. 性能优化要点"></a>5. 性能优化要点</h3><ul>
+<li>所有操作必须是 O(1) 时间复杂度</li>
+<li>避免在链表中进行线性搜索</li>
+<li>使用节点引用而不是值进行 HashMap 存储</li>
+</ul>
+<h2 id="相似题目"><a href="#相似题目" class="headerlink" title="相似题目"></a>相似题目</h2><ul>
+<li><a href="https://leetcode-cn.com/problems/lfu-cache/">LeetCode 460: LFU 缓存</a></li>
+<li><a href="https://leetcode-cn.com/problems/design-linked-list/">LeetCode 707: 设计链表</a></li>
+<li><a href="https://leetcode-cn.com/problems/all-oone-data-structure/">LeetCode 432: 全 O(1) 的数据结构</a></li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line"></span><br></pre></td></tr></table></figure>
+]]></content>
+      <categories>
+        <category>算法题解</category>
+        <category>LeetCode</category>
+      </categories>
+      <tags>
+        <tag>哈希表</tag>
+        <tag>中等</tag>
+        <tag>CodeTop</tag>
+        <tag>设计</tag>
+        <tag>链表</tag>
+        <tag>双向链表</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>LeetCode 206: 反转链表 (Reverse Linked List)</title>
+    <url>/2025/05/25/algorithms/Leetcode-206-%E5%8F%8D%E8%BD%AC%E9%93%BE%E8%A1%A8/</url>
+    <content><![CDATA[<ul>
+<li><a href="https://leetcode.cn/problems/reverse-linked-list/description/">题目地址</a></li>
+</ul>
+<h2 id="题目描述"><a href="#题目描述" class="headerlink" title="题目描述"></a>题目描述</h2><p>给你单链表的头节点 head ，请你反转链表，并返回反转后的链表。</p>
+<p>示例 1:</p>
+<p>输入：head &#x3D; [1,2,3,4,5]<br>输出：[5,4,3,2,1]</p>
+<p>示例 2:</p>
+<p>输入：head &#x3D; [1,2]<br>输出：[2,1]</p>
+<p>示例 3:</p>
+<p>输入：head &#x3D; []<br>输出：[]</p>
+<p>提示：</p>
+<ul>
+<li>链表中节点的数目范围是 [0, 5000]</li>
+<li>-5000 &lt;&#x3D; Node.val &lt;&#x3D; 5000</li>
+</ul>
+<p><strong>进阶：</strong> 链表可以选用迭代或递归方式完成反转。你能否用两种方法解决这道题？</p>
+<span id="more"></span>
+
+<h2 id="解题思路"><a href="#解题思路" class="headerlink" title="解题思路"></a>解题思路</h2><h3 id="核心思想"><a href="#核心思想" class="headerlink" title="核心思想"></a>核心思想</h3><p>反转链表是链表操作的经典问题，主要有两种解法：</p>
+<ul>
+<li><strong>迭代法（递推法）</strong>：使用三个指针遍历链表，逐个反转节点指向</li>
+<li><strong>递归法</strong>：利用递归栈的特性，从链表尾部开始反转</li>
+</ul>
+<h3 id="方法一：迭代法（推荐）"><a href="#方法一：迭代法（推荐）" class="headerlink" title="方法一：迭代法（推荐）"></a>方法一：迭代法（推荐）</h3><h4 id="算法思路"><a href="#算法思路" class="headerlink" title="算法思路"></a>算法思路</h4><ol>
+<li><strong>三指针技巧</strong>：维护 <code>prev</code>、<code>curr</code>、<code>next</code> 三个指针</li>
+<li><strong>逐个反转</strong>：将当前节点的 <code>next</code> 指向前一个节点</li>
+<li><strong>指针移动</strong>：三个指针同时向前移动一位</li>
+<li><strong>边界处理</strong>：处理空链表和单节点情况</li>
+</ol>
+<h4 id="算法流程"><a href="#算法流程" class="headerlink" title="算法流程"></a>算法流程</h4><ol>
+<li><strong>初始化</strong>：<code>prev = null</code>，<code>curr = head</code></li>
+<li><strong>遍历链表</strong>：<ul>
+<li>保存下一个节点：<code>next = curr.next</code></li>
+<li>反转当前节点：<code>curr.next = prev</code></li>
+<li>移动指针：<code>prev = curr</code>，<code>curr = next</code></li>
+</ul>
+</li>
+<li><strong>返回结果</strong>：<code>prev</code> 就是新的头节点</li>
+</ol>
+<h4 id="时间复杂度"><a href="#时间复杂度" class="headerlink" title="时间复杂度"></a>时间复杂度</h4><ul>
+<li><strong>时间复杂度</strong>：O(n)，需要遍历链表一次</li>
+<li><strong>空间复杂度</strong>：O(1)，只使用常数个额外变量</li>
+</ul>
+<h3 id="方法二：递归法"><a href="#方法二：递归法" class="headerlink" title="方法二：递归法"></a>方法二：递归法</h3><h4 id="算法思路-1"><a href="#算法思路-1" class="headerlink" title="算法思路"></a>算法思路</h4><ol>
+<li><strong>递归终止条件</strong>：到达链表尾部或空节点</li>
+<li><strong>递归调用</strong>：先递归到链表尾部</li>
+<li><strong>回溯反转</strong>：在回溯过程中逐个反转节点指向</li>
+<li><strong>返回新头</strong>：递归过程中传递新的头节点</li>
+</ol>
+<h4 id="算法流程-1"><a href="#算法流程-1" class="headerlink" title="算法流程"></a>算法流程</h4><ol>
+<li><strong>递归终止</strong>：如果 <code>head</code> 为空或 <code>head.next</code> 为空，返回 <code>head</code></li>
+<li><strong>递归调用</strong>：<code>newHead = reverseList(head.next)</code></li>
+<li><strong>反转操作</strong>：<code>head.next.next = head</code>，<code>head.next = null</code></li>
+<li><strong>返回结果</strong>：返回 <code>newHead</code></li>
+</ol>
+<h4 id="时间复杂度-1"><a href="#时间复杂度-1" class="headerlink" title="时间复杂度"></a>时间复杂度</h4><ul>
+<li><strong>时间复杂度</strong>：O(n)，需要递归访问每个节点</li>
+<li><strong>空间复杂度</strong>：O(n)，递归调用栈的深度</li>
+</ul>
+<hr>
+<h3 id="算法对比"><a href="#算法对比" class="headerlink" title="算法对比"></a>算法对比</h3><p>迭代法在空间复杂度上更优，但递归法代码更简洁，思路更清晰。</p>
+<hr>
+<h2 id="代码实现"><a href="#代码实现" class="headerlink" title="代码实现"></a>代码实现</h2><h3 id="Java-实现"><a href="#Java-实现" class="headerlink" title="Java 实现"></a>Java 实现</h3><h4 id="方法一：迭代法"><a href="#方法一：迭代法" class="headerlink" title="方法一：迭代法"></a>方法一：迭代法</h4><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Definition for singly-linked list.</span></span><br><span class="line"><span class="comment"> * public class ListNode &#123;</span></span><br><span class="line"><span class="comment"> *     int val;</span></span><br><span class="line"><span class="comment"> *     ListNode next;</span></span><br><span class="line"><span class="comment"> *     ListNode() &#123;&#125;</span></span><br><span class="line"><span class="comment"> *     ListNode(int val) &#123; this.val = val; &#125;</span></span><br><span class="line"><span class="comment"> *     ListNode(int val, ListNode next) &#123; this.val = val; this.next = next; &#125;</span></span><br><span class="line"><span class="comment"> * &#125;</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 反转链表 - 迭代法</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> head 链表头节点</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span> 反转后的链表头节点</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">public</span> ListNode <span class="title function_">reverseList</span><span class="params">(ListNode head)</span> &#123;</span><br><span class="line">        <span class="comment">// 迭代法实现</span></span><br><span class="line">        <span class="comment">// 核心思路：使用三个指针逐个反转节点指向</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (head == <span class="literal">null</span> || head.next == <span class="literal">null</span> ) &#123;</span><br><span class="line">            <span class="keyword">return</span> head;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 1. 初始化三个指针</span></span><br><span class="line">        <span class="type">ListNode</span> <span class="variable">prev</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">        <span class="type">ListNode</span> <span class="variable">curr</span> <span class="operator">=</span> head;</span><br><span class="line">        <span class="type">ListNode</span> <span class="variable">temp</span> <span class="operator">=</span> head.next;</span><br><span class="line">        <span class="comment">// 2. 遍历链表并反转指向</span></span><br><span class="line">        <span class="keyword">while</span> (curr != <span class="literal">null</span>) &#123;</span><br><span class="line">            temp = curr.next;</span><br><span class="line">            curr.next = curr;</span><br><span class="line">            prev = curr;</span><br><span class="line">            curr = temp;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 3. 返回新的头节点</span></span><br><span class="line">        <span class="keyword">return</span> prev;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="方法二：递归法-1"><a href="#方法二：递归法-1" class="headerlink" title="方法二：递归法"></a>方法二：递归法</h4><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 反转链表 - 递归法</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@param</span> head 链表头节点</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@return</span> 反转后的链表头节点</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">public</span> ListNode <span class="title function_">reverseList</span><span class="params">(ListNode head)</span> &#123;</span><br><span class="line">        <span class="comment">// 递归法实现</span></span><br><span class="line">        <span class="comment">// 核心思路：递归到尾部，在回溯过程中反转指向</span></span><br><span class="line">        <span class="comment">// 1. 递归终止条件</span></span><br><span class="line">        <span class="keyword">if</span> (head == <span class="literal">null</span> || head.next == <span class="literal">null</span> ) &#123;</span><br><span class="line">            <span class="keyword">return</span> head;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 2. 递归调用</span></span><br><span class="line">        <span class="type">ListNode</span> <span class="variable">newHead</span> <span class="operator">=</span> reverseList(head.next);</span><br><span class="line">        <span class="comment">// 3. 反转当前节点</span></span><br><span class="line">        head.next.next = head;</span><br><span class="line">        head.next = <span class="literal">null</span>;</span><br><span class="line">        <span class="comment">// 4. 返回新头节点</span></span><br><span class="line">        <span class="keyword">return</span> newHead;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="算法复杂度分析"><a href="#算法复杂度分析" class="headerlink" title="算法复杂度分析"></a>算法复杂度分析</h2><table>
+<thead>
+<tr>
+<th>方法</th>
+<th>时间复杂度</th>
+<th>空间复杂度</th>
+<th>优缺点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>迭代法</td>
+<td>O(n)</td>
+<td>O(1)</td>
+<td>空间效率高，逻辑直观</td>
+</tr>
+<tr>
+<td>递归法</td>
+<td>O(n)</td>
+<td>O(n)</td>
+<td>代码简洁，但占用递归栈</td>
+</tr>
+</tbody></table>
+<h2 id="测试用例"><a href="#测试用例" class="headerlink" title="测试用例"></a>测试用例</h2><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">Test</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="type">Solution</span> <span class="variable">solution</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Solution</span>();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 测试用例1：正常链表</span></span><br><span class="line">        <span class="comment">// 输入: [1,2,3,4,5]</span></span><br><span class="line">        <span class="comment">// 输出: [5,4,3,2,1]</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">// 测试用例2：两个节点</span></span><br><span class="line">        <span class="comment">// 输入: [1,2]</span></span><br><span class="line">        <span class="comment">// 输出: [2,1]</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">// 测试用例3：单个节点</span></span><br><span class="line">        <span class="comment">// 输入: [1]</span></span><br><span class="line">        <span class="comment">// 输出: [1]</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">// 边界用例：空链表</span></span><br><span class="line">        <span class="comment">// 输入: []</span></span><br><span class="line">        <span class="comment">// 输出: []</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="关键要点"><a href="#关键要点" class="headerlink" title="关键要点"></a>关键要点</h2><ol>
+<li><strong>三指针技巧</strong>：迭代法的核心是维护三个指针的正确移动</li>
+<li><strong>递归思维</strong>：递归法需要理解”先递归到尾，再回溯反转”的过程</li>
+<li><strong>边界处理</strong>：注意空链表和单节点的特殊情况</li>
+<li><strong>指针操作</strong>：小心处理指针的赋值顺序，避免丢失节点</li>
+<li><strong>空间权衡</strong>：根据实际需求选择迭代或递归实现</li>
+</ol>
+<h2 id="进阶思考"><a href="#进阶思考" class="headerlink" title="进阶思考"></a>进阶思考</h2><ol>
+<li><strong>尾递归优化</strong>：能否将递归法改写为尾递归形式？</li>
+<li><strong>链表分段反转</strong>：如何实现反转链表的前 K 个节点？</li>
+<li><strong>双向链表</strong>：双向链表的反转有什么不同？</li>
+</ol>
+<h2 id="相似题目"><a href="#相似题目" class="headerlink" title="相似题目"></a>相似题目</h2><ul>
+<li><a href="https://leetcode-cn.com/problems/reverse-linked-list-ii/">LeetCode 092: 反转链表 II</a></li>
+<li><a href="https://leetcode-cn.com/problems/reverse-nodes-in-k-group/">LeetCode 025: K 个一组翻转链表</a></li>
+<li><a href="https://leetcode-cn.com/problems/swap-nodes-in-pairs/">LeetCode 024: 两两交换链表中的节点</a></li>
+<li><a href="https://leetcode-cn.com/problems/reorder-list/">LeetCode 143: 重排链表</a></li>
+</ul>
+]]></content>
+      <categories>
+        <category>算法题解</category>
+        <category>LeetCode</category>
+      </categories>
+      <tags>
+        <tag>简单</tag>
+        <tag>CodeTop</tag>
+        <tag>链表</tag>
+        <tag>递归</tag>
+        <tag>迭代</tag>
+      </tags>
+  </entry>
 </search>
